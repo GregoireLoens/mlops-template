@@ -73,6 +73,14 @@ promote: ## Promotion challenger->prod (gate tests modèle + métriques) + journ
 rollback: ## Repointe l'alias prod vers la version précédente (journal)
 	.venv/bin/python -m src.training.promote --rollback
 
+.PHONY: dagster-dev
+dagster-dev: ## UI Dagster locale — job training_job (validate->feast->train->promote)
+	.venv/bin/dagster dev -m pipelines
+
+.PHONY: dagster-run
+dagster-run: ## Exécute le job training_job en CLI (sans UI)
+	.venv/bin/dagster job execute -m pipelines -j training_job
+
 .PHONY: up
 up: ## Démarre la stack locale (MLflow : tracking + registre + artefacts)
 	$(COMPOSE) up -d --build --wait

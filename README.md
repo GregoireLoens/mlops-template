@@ -117,11 +117,48 @@ Dans ce template : **DVC = source de vérité batch, Feast = couche de serving**
 de ces mêmes features. Un client "batch pur" peut désactiver Feast sans
 toucher au training ; un client temps réel garde les deux, testés cohérents.
 
+Dans ce template : **DVC = source de vérité batch, Feast = couche de serving**
+de ces mêmes features. Un client "batch pur" peut désactiver Feast sans
+toucher au training ; un client temps réel garde les deux, testés cohérents.
+
+## Training + registre MLflow (étapes 5, 6, 8)
+
+```bash
+make train         # up + dvc repro : log MLflow (params/metrics/artefacts) + registre
+make test          # inclut tests/model : seuils eval + invariance + comportement
+make promote       # challenger -> prod si tests modèle verts ET métrique > champion
+make rollback      # repointe prod vers la version précédente (journal)
+```
+
+Chaque entraînement enregistre une version de `churn-template` et pointe
+l'alias **`challenger`** dessus. La promotion vers l'alias **`prod`** est une
+décision séparée, sous double gate (tests modèle verts + roc_auc strictement
+supérieur), journalisée dans `reports/promotions.md` (audit trail commité).
+Sans `MLFLOW_TRACKING_URI`, MLflow écrit dans `./mlruns` (store fichier) :
+le pipeline reste reproductible sans serveur.
+
+## Orchestration Dagster (étape 7)
+
+```bash
+make dagster-dev   # UI : http://localhost:3000 — job training_job rejouable
+make dagster-run   # exécution CLI du même job (sans UI)
+```
+
+Les assets Dagster appellent **le même code** que `dvc.yaml` (zéro
+duplication) : prepare -> validate (GE) -> materialize Feast -> train
+
+- evaluate -> promote. NB : la sélection d'assets se fait par clés
+  (`AssetSelection.assets`), jamais par string — le runtime ANTLR est figé à
+  4.9 par dvc->omegaconf et le parser de string de sélection exige 4.13.
+
 ## État d'avancement
 
 - [x] **Étape 1** — squelette reproductible (uv 3.11, pre-commit, compose MLflow, Makefile)
 - [x] **Étape 2** — données versionnées DVC (dataset simulé, prepare/train, params.yaml)
 - [x] **Étape 3** — gate GE bloquante (suites en code, rapport HTML versionné, blocage testé)
 - [x] **Étape 4** — Feast local (feature view, materialize, chemin training équivalent)
-- [ ] Étapes 5-8 — training/MLflow, tests modèle, Dagster, promotion
+- [x] **Étape 5** — training loggé MLflow (params/metrics/artefacts, registre, alias challenger)
+- [x] **Étape 6** — tests modèle (seuils eval, invariance, comportement directionnel)
+- [x] **Étape 7** — Dagster (assets partagés avec DVC, job training_job idempotent)
+- [x] **Étape 8** — promotion challenger->prod (double gate, journal, rollback)
 - [ ] Étapes 9-11 — CI, CD/canary/rollback, documentation
