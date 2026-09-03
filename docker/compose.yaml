@@ -22,6 +22,7 @@ services:
       --backend-store-uri ${MLFLOW_BACKEND_STORE_URI:-sqlite:////mlflow/mlflow.db}
       --serve-artifacts
       --artifacts-destination ${MLFLOW_ARTIFACTS_DESTINATION:-/mlflow/artifacts}
+      --allowed-hosts ${MLFLOW_ALLOWED_HOSTS:-localhost,mlflow,127.0.0.1}
     ports:
       - "${MLFLOW_PORT:-5000}:5000"
     volumes:
@@ -56,6 +57,85 @@ services:
       interval: 5s
       timeout: 5s
       retries: 12
+
+  # --- Serving canary (profil "serving") : stable 90% / canary 10% via nginx.
+  # L'image est surchargée en CD : SERVING_IMAGE=ghcr.io/<org>/mlops-serving:<sha>.
+  # Le canary est le MÊME service : on simule sa dégradation avec SERVE_FAILURE=1
+  # (la gate smoke-test doit détecter ~10% d'erreurs et le rollback est joué).
+  serving-stable:
+    build:
+      context: ..
+      dockerfile: docker/serving/Dockerfile
+    image: ${SERVING_IMAGE:-mlops-template/serving:local}
+    container_name: mlops-serving-stable
+    profiles: ["serving"]
+    environment:
+      MODEL_NAME: churn-template
+      MODEL_ALIAS: prod
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      SERVE_FAILURE: ${SERVE_FAILURE_STABLE:-0}
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8001:8000" # accès direct stable (baseline du smoke-test)
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request as u; u.urlopen('http://localhost:8000/health', timeout=3)",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  serving-canary:
+    build:
+      context: ..
+      dockerfile: docker/serving/Dockerfile
+    image: ${SERVING_IMAGE:-mlops-template/serving:local}
+    container_name: mlops-serving-canary
+    profiles: ["serving"]
+    environment:
+      MODEL_NAME: churn-template
+      MODEL_ALIAS: prod
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      SERVE_FAILURE: ${SERVE_FAILURE_CANARY:-0}
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8002:8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request as u; u.urlopen('http://localhost:8000/health', timeout=3)",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: mlops-nginx
+    profiles: ["serving"]
+    volumes:
+      - ./serving/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - serving-stable
+      - serving-canary
+    ports:
+      - "127.0.0.1:8090:8080" # NB : 8080 peut être occupé par d'autres services locaux
+    restart: unless-stopped
 
 volumes:
   mlflow-data:

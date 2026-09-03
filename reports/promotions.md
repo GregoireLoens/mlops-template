@@ -10,3 +10,5 @@ Une ligne par décision : qui, quoi, quand, quelles métriques.
 | 2026-09-03 15:46 | glo | churn-template | v8 (roc_auc=0.7040) | prod (roc_auc=0.7332) | REFUSÉ   | tests modèle en échec (1 failed, 5 passed, 4 skipped in 3.10s) |
 | 2026-09-03 15:57 | glo | churn-template | v9 (roc_auc=0.7332) | prod (roc_auc=0.7332) | REFUSÉ | pas d'amélioration mesurable (roc_auc challenger <= champion) |
 | 2026-09-03 15:58 | glo | churn-template | v10 (roc_auc=0.7332) | prod (roc_auc=0.7332) | REFUSÉ | pas d'amélioration mesurable (roc_auc challenger <= champion) |
+| 2026-09-03 16:28 | glo | churn-template | v12 (roc_auc=0.7533) | prod (roc_auc=0.7332) | PROMU | roc_auc challenger > champion |
+| 2026-09-03 16:28 | glo | churn-template | — | v7 | ROLLBACK | prod repointé de v12 vers v7 |

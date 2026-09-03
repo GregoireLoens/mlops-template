@@ -70,8 +70,27 @@ promote: ## Promotion challenger->prod (gate tests modèle + métriques) + journ
 	.venv/bin/python -m src.training.promote
 
 .PHONY: rollback
-rollback: ## Repointe l'alias prod vers la version précédente (journal)
+rollback: ## Alias prod -> version précédente + reload du serving canary
 	.venv/bin/python -m src.training.promote --rollback
+	@$(COMPOSE) --profile serving up -d --force-recreate \
+		serving-stable serving-canary 2>/dev/null || true
+
+.PHONY: serve
+serve: ## Serving canary local : nginx :8090 (90/10), stable :8001, canary :8002
+	$(MAKE) up
+ifneq ($(SERVING_IMAGE),)
+	$(COMPOSE) --profile serving up -d --wait
+else
+	$(COMPOSE) --profile serving up -d --build --wait
+endif
+
+.PHONY: smoke
+smoke: ## Smoke-test canary — exit 1 si le mix dégrade le taux d'erreur
+	.venv/bin/python -m src.serving.smoke --url http://localhost:8090 --baseline http://localhost:8001
+
+.PHONY: serve-down
+serve-down: ## Arrête le serving (mlflow reste up)
+	$(COMPOSE) --profile serving down --remove-orphans
 
 .PHONY: dagster-dev
 dagster-dev: ## UI Dagster locale — job training_job (validate->feast->train->promote)

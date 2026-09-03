@@ -1,0 +1,98 @@
+# CD du modèle : construit l'image de serving, la pousse sur GHCR, déploie la
+# stack serving (canary 90/10) et valide par smoke-test. En cas d'échec du
+# canary : rollback de l'alias prod + re-smoke — le job échoue si le rollback
+# ne rétablit pas le service.
+# NB : le modèle n'est jamais baked dans l'image ; le job entraîne et promeut
+# depuis le registre du job (self-contained), le serving charge par alias.
+
+name: CD modèle (serving)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/serving/**"
+      - "docker/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/cd-model.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: build image serving -> GHCR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/serving/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/mlops-serving:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/mlops-serving:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-smoke:
+    name: deploy canary + smoke + rollback
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    env:
+      SERVING_IMAGE: ghcr.io/${{ github.repository_owner }}/mlops-serving:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv python install && uv sync --extra dev --extra serving
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Cache DVC
+        uses: actions/cache@v4
+        with:
+          path: .dvc/cache
+          key: dvc-${{ hashFiles('dvc.lock') }}
+          restore-keys: dvc-
+      - name: Stack MLflow + entraînement + première promotion
+        env:
+          MLFLOW_TRACKING_URI: http://localhost:5000
+        run: |
+          make setup
+          .venv/bin/python -m src.data.generate_raw
+          .venv/bin/dvc add data/raw
+          .venv/bin/dvc repro
+          make promote
+      - name: Déploiement canary (stable 90% / canary 10%)
+        run: make serve
+      - name: Smoke-test canary (rollback auto si échec)
+        env:
+          MLFLOW_TRACKING_URI: http://localhost:5000
+        run: |
+          if ! make smoke; then
+            echo "Canary en échec -> rollback" | tee -a "$GITHUB_STEP_SUMMARY"
+            make rollback
+            if make smoke; then
+              echo "Rollback OK : prod repointé, service rétabli" >> "$GITHUB_STEP_SUMMARY"
+              exit 1 # déploiement refusé, l'ancienne version est servie
+            fi
+            echo "Rollback insuffisant : service toujours dégradé" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "Canary OK : 90/10 servi, taux d'erreur nominal" >> "$GITHUB_STEP_SUMMARY"

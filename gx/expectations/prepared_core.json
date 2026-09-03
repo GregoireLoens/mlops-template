@@ -1,7 +1,7 @@
 {
   "expectations": [
     {
-      "id": "f77f5423-55e2-450f-8717-3736ab20598a",
+      "id": "7e0274d4-9a42-410d-bf51-387c76f425d3",
       "kwargs": {
         "min_value": 1000
       },
@@ -10,7 +10,7 @@
       "type": "expect_table_row_count_to_be_between"
     },
     {
-      "id": "376846ee-ad0b-4807-8e02-9ab53008991d",
+      "id": "da6473ce-4c0c-43ae-8fe4-4cd56a6f5209",
       "kwargs": {
         "column": "customer_id"
       },
@@ -19,7 +19,7 @@
       "type": "expect_column_values_to_not_be_null"
     },
     {
-      "id": "1cd19134-f4a5-4904-9b68-942564aa7be1",
+      "id": "1b06cab1-ae27-49ee-bbf8-2a942b70be94",
       "kwargs": {
         "column": "customer_id"
       },
@@ -28,7 +28,7 @@
       "type": "expect_column_values_to_be_unique"
     },
     {
-      "id": "6306e9c5-3fee-4d7b-ba3b-e4a139ad0b57",
+      "id": "2d520594-2318-4081-9bb1-9a6222eb053d",
       "kwargs": {
         "column": "age"
       },
@@ -37,7 +37,7 @@
       "type": "expect_column_values_to_not_be_null"
     },
     {
-      "id": "f692ed57-c5fb-4e15-b66c-a2810ba2517e",
+      "id": "37a581d8-4133-4768-970a-2711f9837bd9",
       "kwargs": {
         "column": "tenure_months"
       },
@@ -46,7 +46,7 @@
       "type": "expect_column_values_to_not_be_null"
     },
     {
-      "id": "826ff982-6a72-478f-8b57-2ed877d3cf0c",
+      "id": "76e16258-b938-4e5c-880c-92635ffbfd15",
       "kwargs": {
         "column": "monthly_fee"
       },
@@ -55,7 +55,7 @@
       "type": "expect_column_values_to_not_be_null"
     },
     {
-      "id": "94afe777-6920-4b07-9784-a6e96a9106f5",
+      "id": "82aed2a6-53ac-4e67-ac85-5607d97f9658",
       "kwargs": {
         "column": "num_support_calls"
       },
@@ -64,7 +64,7 @@
       "type": "expect_column_values_to_not_be_null"
     },
     {
-      "id": "e505cdd5-3ad8-46de-b8e7-1311f9fc3d0c",
+      "id": "0bfb2065-5acc-4f3c-8d72-ae9cca9392a4",
       "kwargs": {
         "column": "has_premium"
       },
@@ -73,7 +73,7 @@
       "type": "expect_column_values_to_not_be_null"
     },
     {
-      "id": "174bc118-1d15-4d13-9423-469d8470172e",
+      "id": "fd5f6f31-4302-4ef0-b89e-a9b858c6f55b",
       "kwargs": {
         "column": "contract_type"
       },
@@ -82,7 +82,7 @@
       "type": "expect_column_values_to_not_be_null"
     },
     {
-      "id": "02174bd5-507f-4946-999a-2c2c1d88086b",
+      "id": "d173a61e-acc1-4954-885c-17ff2cc0e933",
       "kwargs": {
         "column": "signup_channel"
       },
@@ -91,7 +91,7 @@
       "type": "expect_column_values_to_not_be_null"
     },
     {
-      "id": "dd3821bf-b23e-4c3d-a867-77469db2560b",
+      "id": "e9a34347-98bf-4f7f-a6d7-9579732349df",
       "kwargs": {
         "column": "signup_ts",
         "max_value": "2025-06-30T00:00:00",
@@ -102,7 +102,7 @@
       "type": "expect_column_values_to_be_between"
     },
     {
-      "id": "499746db-569a-45d5-8c75-fb4e254f943c",
+      "id": "66e71322-a4fd-4852-b201-7a3e90f4e700",
       "kwargs": {
         "column": "age",
         "max_value": 75.0,
@@ -113,7 +113,7 @@
       "type": "expect_column_values_to_be_between"
     },
     {
-      "id": "d81b34f7-310d-487e-9bdc-f0a233c76b78",
+      "id": "1bb1f3d4-0e4d-4206-aa2f-ca2cd6ec17b4",
       "kwargs": {
         "column": "tenure_months",
         "max_value": 120.0,
@@ -124,7 +124,7 @@
       "type": "expect_column_values_to_be_between"
     },
     {
-      "id": "e8b46713-4856-4b32-a1ce-ae64a934c686",
+      "id": "ac6ff40c-4026-457e-8c61-bd1c9227d109",
       "kwargs": {
         "column": "monthly_fee",
         "max_value": 120.0,
@@ -135,7 +135,7 @@
       "type": "expect_column_values_to_be_between"
     },
     {
-      "id": "12585641-7df0-4af7-b8d1-9e3202db4c18",
+      "id": "4ca8cabd-a380-486f-ae5d-3054c5d861ca",
       "kwargs": {
         "column": "num_support_calls",
         "max_value": 20.0,
@@ -146,7 +146,7 @@
       "type": "expect_column_values_to_be_between"
     },
     {
-      "id": "5ca6990e-dcda-4380-afec-a8bc5d1bf38b",
+      "id": "e4bf703e-d9d3-4bbc-ae6a-0052b6d506ff",
       "kwargs": {
         "column": "has_premium",
         "value_set": [
@@ -159,7 +159,7 @@
       "type": "expect_column_values_to_be_in_set"
     },
     {
-      "id": "d18f99da-23ad-4e42-876a-2560875103dc",
+      "id": "75c7be3a-a754-42fa-8a52-cfbe60ed908c",
       "kwargs": {
         "column": "contract_type",
         "value_set": [
@@ -173,7 +173,7 @@
       "type": "expect_column_values_to_be_in_set"
     },
     {
-      "id": "cf00f6ed-8799-432f-9fed-a05a7dd38f44",
+      "id": "90cf5ab9-5ae1-40b0-a48a-4fe510abdf0c",
       "kwargs": {
         "column": "signup_channel",
         "value_set": [
@@ -187,7 +187,7 @@
       "type": "expect_column_values_to_be_in_set"
     },
     {
-      "id": "ad3e48d0-b16c-4f61-89d9-13bf8e1eede7",
+      "id": "82c52475-7fb9-458c-8ad8-2f8a8bc1c93e",
       "kwargs": {
         "column": "churn",
         "value_set": [
@@ -200,7 +200,7 @@
       "type": "expect_column_values_to_be_in_set"
     },
     {
-      "id": "6b720f97-0e0e-4192-ab41-117adf1cf221",
+      "id": "ad6d2d19-4dd9-472a-9e16-ab513b299c4f",
       "kwargs": {
         "column": "churn",
         "max_value": 0.4,

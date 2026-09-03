@@ -153,6 +153,28 @@ duplication) : prepare -> validate (GE) -> materialize Feast -> train
   (`AssetSelection.assets`), jamais par string — le runtime ANTLR est figé à
   4.9 par dvc->omegaconf et le parser de string de sélection exige 4.13.
 
+## Serving canary + rollback (étape 10)
+
+```bash
+make serve         # stable :8001, canary :8002, nginx :8090 (90/10)
+make smoke         # gate : taux d'erreur du mix vs baseline stable
+make rollback      # alias prod -> version précédente + reload du serving
+make serve-down    # arrête le serving (MLflow reste up)
+```
+
+Le modèle n'est **jamais baked dans l'image** : FastAPI le charge au
+démarrage depuis le registre MLflow **par alias** (`prod`), avec la
+signature validée au training. Le canary est le même service : sa
+dégradation se simule avec `SERVE_FAILURE_CANARY=1` (le smoke-test doit
+échouer, ~10 % d'erreurs). Le rollback repointe l'alias `prod` vers la
+version antérieure du journal puis recrée les conteneurs — vérifiable en
+une ligne : `curl localhost:8090/health` affiche la version servie.
+
+Le CD (`.github/workflows/cd-model.yml`) construit l'image serving, la
+pousse sur GHCR, déploie le canary et enchaîne smoke -> rollback auto si
+échec. Ports : 8090 pour nginx (8080 est souvent pris sur les postes de
+dev) ; MLflow rejette les Host headers inattendus (`--allowed-hosts`).
+
 ## État d'avancement
 
 - [x] **Étape 1** — squelette reproductible (uv 3.11, pre-commit, compose MLflow, Makefile)
@@ -163,4 +185,6 @@ duplication) : prepare -> validate (GE) -> materialize Feast -> train
 - [x] **Étape 6** — tests modèle (seuils eval, invariance, comportement directionnel)
 - [x] **Étape 7** — Dagster (assets partagés avec DVC, job training_job idempotent)
 - [x] **Étape 8** — promotion challenger->prod (double gate, journal, rollback)
-- [ ] Étapes 9-11 — CI, CD/canary/rollback, documentation
+- [x] **Étape 9** — CI (lint, unitaires, intégration DVC+GE+modèle, caches, résumé PR)
+- [x] **Étape 10** — serving FastAPI par alias, canary 90/10 nginx, smoke + rollback
+- [ ] Étape 11 — documentation finale (architecture, ADR, checklist client)
