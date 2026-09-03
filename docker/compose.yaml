@@ -1,0 +1,62 @@
+# Stack locale du template : serveur MLflow (tracking + registre + artefacts).
+#
+# - backend sqlite par défaut (volume nommé) : zéro dépendance externe, adapté au local ;
+# - profil "postgres" : même serveur sur backend postgresql (plus proche de la prod) ;
+# - artefacts servis par le serveur (--serve-artifacts) : les clients MLflow passent
+#   par HTTP et n'accèdent jamais au disque du serveur — c'est la configuration
+#   qui se transpose telle quelle au mode scalable (postgres + S3/MinIO).
+
+name: mlops-template
+
+services:
+  mlflow:
+    build:
+      context: ..
+      dockerfile: docker/mlflow/Dockerfile
+    image: mlops-template/mlflow:latest
+    container_name: mlops-mlflow
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri ${MLFLOW_BACKEND_STORE_URI:-sqlite:////mlflow/mlflow.db}
+      --serve-artifacts
+      --artifacts-destination ${MLFLOW_ARTIFACTS_DESTINATION:-/mlflow/artifacts}
+    ports:
+      - "${MLFLOW_PORT:-5000}:5000"
+    volumes:
+      - mlflow-data:/mlflow
+    healthcheck:
+      # curl n'est pas dans l'image MLflow (slim) : healthcheck en python stdlib.
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request as u; u.urlopen('http://localhost:5000/health', timeout=3)",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 15s
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: mlops-postgres
+    profiles: ["postgres"]
+    environment:
+      POSTGRES_USER: mlflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mlflow}
+      POSTGRES_DB: mlflow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mlflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  mlflow-data:
+  postgres-data:

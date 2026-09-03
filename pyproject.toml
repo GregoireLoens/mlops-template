@@ -1,0 +1,63 @@
+[project]
+name = "mlops-template"
+version = "0.1.0"
+description = "Template MLOps reproductible : training versionné (DVC, Feast, MLflow, Dagster) + CI/CD modèle (Great Expectations, promotion par alias, canary)."
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+license = { text = "MIT" }
+# Dépendances runtime ajoutées au fil des étapes (2 à 10) : l'historique de
+# ce fichier suit la construction du template, étape par étape.
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit>=4.0",
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "mypy>=1.14",
+    "ruff>=0.9",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# src est une racine de namespace (src.data, src.training, ...) : les
+# sous-modules s'importent tels quels depuis la racine du repo.
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.uv]
+# `uv sync` installe aussi le projet lui-même en mode editable.
+package = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "pipelines", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.11"
+mypy_path = "."
+explicit_package_bases = true
+namespace_packages = true
+files = ["src"]
+disallow_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+# Pragmatique : les libs MLOps sans stubs (feast, dagster, ...) ne bloquent pas le lint.
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+# Séparation unitaires / intégration : `pytest` n'exécute que les unitaires ;
+# `make test-integration` force `-m integration` (les arguments CLI priment
+# sur addopts).
+addopts = '-m "not integration"'
+markers = [
+    "integration: pipeline bout-en-bout (DVC repro + validation GE + tests modèle) — lent",
+]
