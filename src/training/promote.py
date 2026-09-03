@@ -34,6 +34,10 @@ _HEADER = """# Journal des promotions
 Une ligne par décision : qui, quoi, quand, quelles métriques.
 `prod` = alias champion (servi en production), `challenger` = dernier entraîné.
 
+> Le journal est un audit trail local : le registre MLflow est la source de
+> vérité des alias. En cas de doute (journal désynchronisé d'un registre
+> reconstruit), vérifier avec `MlflowClient().get_model_version_by_alias`.
+
 | Date (UTC) | Qui | Modèle | Challenger | Champion | Décision | Motif |
 | --- | --- | --- | --- | --- | --- | --- |
 """
@@ -156,10 +160,20 @@ def _journal(params: Params, d: Decision, applied: bool) -> None:
     now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M")
     who = os.getenv("PROMOTED_BY", getpass.getuser())
     verdict = "PROMU" if applied else ("SIMULÉ" if d.promoted else "REFUSÉ")
+    # Contexte registre : le journal se relit seul — on fige la run source du
+    # challenger et l'alias prod AVANT décision (état réel, pas reconstruit).
+    client = MlflowClient()
+    challenger_mv = client.get_model_version_by_alias(params.train.model_name, "challenger")
+    assert challenger_mv is not None and challenger_mv.run_id is not None
+    challenger_run = client.get_run(challenger_mv.run_id).data.tags.get("mlflow.runName", "?")
+    try:
+        prod_before = client.get_model_version_by_alias(params.train.model_name, "prod").version
+    except Exception:
+        prod_before = "—"
     line = (
         f"| {now} | {who} | {params.train.model_name} "
-        f"| v{d.challenger_version} ({REF_METRIC}={d.challenger_metric:.4f}) "
-        f"| {d.champion_version or '—'} ({REF_METRIC}="
+        f"| v{d.challenger_version} ({challenger_run}, {REF_METRIC}={d.challenger_metric:.4f}) "
+        f"| {d.champion_version or '—'} (prod=v{prod_before}, {REF_METRIC}="
         f"{f'{d.champion_metric:.4f}' if d.champion_metric is not None else '—'}) "
         f"| {verdict} | {d.reason} |\n"
     )
@@ -173,8 +187,23 @@ def _journal(params: Params, d: Decision, applied: bool) -> None:
 
 
 def rollback(params: Params) -> str:
-    """Repointe `prod` vers la version précédente (lue dans le journal)."""
+    """Repointe `prod` vers la version précédente (lue dans le journal).
+
+    Sécurité : la version cible est VÉRIFIÉE dans le registre avant le
+    repointage — un registre reconstruit (vide) lève une erreur claire au
+    lieu de repointer un alias vers une version fantôme.
+    """
     _setup()
+    client = MlflowClient()
+    try:
+        current = client.get_model_version_by_alias(params.train.model_name, "prod").version
+    except Exception as exc:
+        raise RuntimeError(
+            "aucun alias prod dans le registre (serveur reconstruit ?) : "
+            "relancer `make train` puis `make promote` pour recréer la lignée"
+        ) from exc
+    if not PROMOTIONS_LOG.exists():
+        raise RuntimeError("journal des promotions absent : rien à rollbacker")
     entries = [
         line
         for line in PROMOTIONS_LOG.read_text(encoding="utf-8").splitlines()
@@ -184,14 +213,20 @@ def rollback(params: Params) -> str:
         raise RuntimeError("aucune promotion dans le journal : rien à rollbacker")
     # Dernière version promue = cible du rollback de l'avant-dernière (ou v1).
     versions = [line.split("|")[4].strip().split(" ")[0] for line in entries]
-    current = MlflowClient().get_model_version_by_alias(params.train.model_name, "prod").version
     previous = next((v for v in reversed(versions) if v != f"v{current}"), None)
     if previous is None:
         raise RuntimeError(f"pas de version antérieure à v{current} dans le journal")
     previous = previous.lstrip("v")
-    MlflowClient().set_registered_model_alias(
-        name=params.train.model_name, alias="prod", version=previous
-    )
+    # Vérification registre : la version cible doit exister, sinon l'alias
+    # pointerait une version absente et le serving refuserait de démarrer.
+    try:
+        client.get_model_version(params.train.model_name, previous)
+    except Exception as exc:
+        raise RuntimeError(
+            f"version v{previous} absente du registre (serveur reconstruit ?) : "
+            "rollback impossible, relancer `make train` puis `make promote`"
+        ) from exc
+    client.set_registered_model_alias(name=params.train.model_name, alias="prod", version=previous)
     now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M")
     with open(PROMOTIONS_LOG, "a", encoding="utf-8") as f:
         f.write(

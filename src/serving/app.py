@@ -32,7 +32,7 @@ from src.config import load_params
 ContractType = Literal["month_to_month", "one_year", "two_year"]
 SignupChannel = Literal["web", "mobile", "partner"]
 
-_state: dict[str, str | None] = {"model_version": None}
+_state: dict[str, str | None] = {"model_version": None}  # version servie (probe /rollback)
 
 
 @lru_cache(maxsize=1)
@@ -41,12 +41,13 @@ def _model() -> Pipeline:
     # Serveur down : fail fast (sinon backoff exponentiel MLflow, minutes).
     os.environ.setdefault("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "2")
     params = load_params()
+    model_name = os.getenv("MODEL_NAME", params.train.model_name)
     alias = os.getenv("MODEL_ALIAS", "prod")
     uri = os.getenv("MLFLOW_TRACKING_URI")
     if uri:
         mlflow.set_tracking_uri(uri)
-    mv = MlflowClient().get_model_version_by_alias(params.train.model_name, alias)
-    model = mlflow.sklearn.load_model(f"models:/{params.train.model_name}@{alias}")
+    mv = MlflowClient().get_model_version_by_alias(model_name, alias)
+    model = mlflow.sklearn.load_model(f"models:/{model_name}@{alias}")
     _state["model_version"] = f"v{mv.version} ({alias})"
     return model
 
