@@ -93,11 +93,35 @@ de `reports/`, l'out de `validate`).
 - Le drift de distribution (`--drift shift`) est bloqué aussi : l'expectation de
   moyenne sur la cible (`churn`) sort de ses bornes.
 
+## Feature store — Feast (étape 4)
+
+```bash
+make feast-apply && make feast-materialize && make train-feast
+```
+
+Le feature view `customer_profile` expose exactement les features du training
+DVC, depuis le parquet produit par `prepare`. `make train-feast` fit le même
+pipeline via `get_historical_features` : métriques **bit-à-bit identiques**
+au chemin fichiers (testé aussi en unitaire, repo Feast isolé).
+
+### DVC vs Feast — quand utiliser quoi
+
+| Situation                                                     | Choix                                        |
+| ------------------------------------------------------------- | -------------------------------------------- |
+| Training batch reproductible, une seule source                | CSV/parquet DVC (chemin par défaut du train) |
+| Features partagées training ↔ serving temps réel             | Feast (`get_online_features`, étape 10)      |
+| Historique long + features calculées à la volée multi-équipes | Feast offline store (point-in-time correct)  |
+| Données qui changent sans retraining                          | Feast (materialize régulier) > rebuild DVC   |
+
+Dans ce template : **DVC = source de vérité batch, Feast = couche de serving**
+de ces mêmes features. Un client "batch pur" peut désactiver Feast sans
+toucher au training ; un client temps réel garde les deux, testés cohérents.
+
 ## État d'avancement
 
 - [x] **Étape 1** — squelette reproductible (uv 3.11, pre-commit, compose MLflow, Makefile)
 - [x] **Étape 2** — données versionnées DVC (dataset simulé, prepare/train, params.yaml)
 - [x] **Étape 3** — gate GE bloquante (suites en code, rapport HTML versionné, blocage testé)
-- [ ] Étape 4 — Feast
+- [x] **Étape 4** — Feast local (feature view, materialize, chemin training équivalent)
 - [ ] Étapes 5-8 — training/MLflow, tests modèle, Dagster, promotion
 - [ ] Étapes 9-11 — CI, CD/canary/rollback, documentation

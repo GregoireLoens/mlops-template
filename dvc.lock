@@ -14,8 +14,8 @@ stages:
       size: 1356
     - path: src/data/prepare.py
       hash: md5
-      md5: 4f0c30a047163d6005c3b7ee201b4a5c
-      size: 1847
+      md5: a71e5a1efcc333c3df0d83e4d854076d
+      size: 2122
     params:
       params.yaml:
         data:
@@ -28,30 +28,30 @@ stages:
     outs:
     - path: data/prepared
       hash: md5
-      md5: e761aee0c53d5524cd8fef97b49ed3e1.dir
-      size: 579878
-      nfiles: 2
+      md5: ec12b5c1b9b8446d3ae3aafc6f6d1406.dir
+      size: 745033
+      nfiles: 4
   train:
     cmd: python -m src.training.train
     deps:
     - path: data/prepared
       hash: md5
-      md5: e761aee0c53d5524cd8fef97b49ed3e1.dir
-      size: 579878
-      nfiles: 2
+      md5: ec12b5c1b9b8446d3ae3aafc6f6d1406.dir
+      size: 745033
+      nfiles: 4
     - path: reports
       hash: md5
-      md5: fa2d4db51e7869c44ea269768befee13.dir
-      size: 4291414
-      nfiles: 26
+      md5: dc77596f6bfc73a8e169817076f200ee.dir
+      size: 4446217
+      nfiles: 29
     - path: src/config.py
       hash: md5
       md5: c01585ab5ec542ef6b8b1a0afa5feab9
       size: 1356
     - path: src/training/train.py
       hash: md5
-      md5: 2d43e590079b4c3bd3493e07dfa8a5db
-      size: 3526
+      md5: e9873e667b17177828f67543e30203cd
+      size: 4752
     params:
       params.yaml:
         features:
@@ -86,9 +86,9 @@ stages:
     deps:
     - path: data/prepared
       hash: md5
-      md5: e761aee0c53d5524cd8fef97b49ed3e1.dir
-      size: 579878
-      nfiles: 2
+      md5: ec12b5c1b9b8446d3ae3aafc6f6d1406.dir
+      size: 745033
+      nfiles: 4
     - path: data/raw
       hash: md5
       md5: 69cf310e153335ce44340fc9097363de.dir
@@ -128,6 +128,6 @@ stages:
     outs:
     - path: reports
       hash: md5
-      md5: fa2d4db51e7869c44ea269768befee13.dir
-      size: 4291414
-      nfiles: 26
+      md5: dc77596f6bfc73a8e169817076f200ee.dir
+      size: 4446217
+      nfiles: 29

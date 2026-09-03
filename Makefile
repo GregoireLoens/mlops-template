@@ -48,6 +48,18 @@ repro: ## Exécute le pipeline DVC (prepare -> train)
 metrics: ## Affiche les métriques DVC du dernier run
 	.venv/bin/dvc metrics show
 
+.PHONY: feast-apply
+feast-apply: ## Applique les définitions Feast (entité, feature view)
+	(cd features && feast apply)
+
+.PHONY: feast-materialize
+feast-materialize: ## Matérialise les features vers l'online store local
+	.venv/bin/python -m src.features.store
+
+.PHONY: train-feast
+train-feast: ## Entraîne via les features servies par Feast (historical)
+	.venv/bin/python -m src.training.train --source feast
+
 .PHONY: up
 up: ## Démarre la stack locale (MLflow : tracking + registre + artefacts)
 	$(COMPOSE) up -d --build --wait

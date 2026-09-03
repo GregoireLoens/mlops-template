@@ -1,0 +1,11 @@
+# Repo Feast local (provider file) — zéro infra externe.
+# Les stores binaires (registry, online) vivent dans data/feast/ : ce sont
+# des artefacts DÉRIVÉS du materialize (régénérables) — ni commités git,
+# ni versionnés DVC (la source de vérité reste data/prepared, out DVC).
+project: mlops_template
+provider: local
+registry: ../data/feast/registry.db
+online_store:
+  type: sqlite
+  path: ../data/feast/online_store.db
+entity_key_serialization_version: 2

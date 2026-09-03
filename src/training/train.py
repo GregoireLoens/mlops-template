@@ -11,6 +11,7 @@ et `models/model.pkl`.
 
 from __future__ import annotations
 
+import argparse
 import json
 from typing import Any
 
@@ -89,8 +90,38 @@ def run(params: Params) -> dict[str, float | str]:
     return metrics
 
 
+def run_from_feast(params: Params) -> dict[str, float | str]:
+    """Chemin Feast : mêmes fonctions, features servies par le feature store.
+
+    Démonstration du chemin offline Feast (point-in-time correct) : le
+    modèle NE PASSE PAS par models/ ni metrics.json (le chemin DVC reste
+    la source de vérité batch) — on mesure et on compare. L'équivalence
+    features Feast <-> CSV est testée dans tests/data/test_feast.py.
+    """
+    from src.features.store import load_training_frame  # import tardif (feast)
+
+    train_df = load_training_frame(params)
+    test_df = pd.read_csv(PROJECT_ROOT / params.data.test_path)
+    model = train_model(train_df, params)
+    metrics: dict[str, float | str] = {
+        **evaluate(model, test_df, params),
+        "model_type": params.train.model_type,
+        "source": "feast",
+    }
+    return metrics
+
+
 def main() -> None:
-    metrics = run(load_params())
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--source",
+        choices=["files", "feast"],
+        default="files",
+        help="files = data/prepared (DVC), feast = get_historical_features",
+    )
+    args = parser.parse_args()
+    params = load_params()
+    metrics = run(params) if args.source == "files" else run_from_feast(params)
     print(f"train OK — {metrics}")
 
 

@@ -39,6 +39,10 @@ def run(params: Params) -> tuple[pd.DataFrame, pd.DataFrame]:
     train_path.parent.mkdir(parents=True, exist_ok=True)
     train_df.to_csv(train_path, index=False)
     test_df.to_csv(test_path, index=False)
+    # Parquets pour la source Feast (feature view customer_profile) : même
+    # contenu, format colonne avec dtypes préservés.
+    train_df.to_parquet(train_path.with_suffix(".parquet"), index=False)
+    test_df.to_parquet(test_path.with_suffix(".parquet"), index=False)
     return train_df, test_df
 
 
