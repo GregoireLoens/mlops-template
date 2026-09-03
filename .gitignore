@@ -21,3 +21,4 @@ htmlcov/
 data/*
 !data/.gitkeep
 !data/*.dvc
+!data/README.md
