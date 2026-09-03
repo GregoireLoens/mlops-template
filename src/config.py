@@ -50,11 +50,43 @@ class EvalConfig:
 
 
 @dataclass(frozen=True)
+class DriftConfig:
+    share_threshold: float
+    pvalue_threshold: float
+    min_current_rows: int
+    min_reference_rows: int
+
+
+@dataclass(frozen=True)
+class PerformanceConfig:
+    min_roc_auc: float
+    min_accuracy: float
+    drop_tolerance: float
+
+
+@dataclass(frozen=True)
+class RetrainConfig:
+    min_new_rows: int
+    cooldown_hours: float
+
+
+@dataclass(frozen=True)
+class MonitoringConfig:
+    reference_path: str
+    inferences_dir: str
+    reports_dir: str
+    drift: DriftConfig
+    performance: PerformanceConfig
+    retrain: RetrainConfig
+
+
+@dataclass(frozen=True)
 class Params:
     data: DataConfig
     features: FeaturesConfig
     train: TrainConfig
     eval: EvalConfig
+    monitoring: MonitoringConfig
 
 
 def load_params(path: Path = PARAMS_FILE) -> Params:
@@ -65,4 +97,19 @@ def load_params(path: Path = PARAMS_FILE) -> Params:
         features=FeaturesConfig(**raw["features"]),
         train=TrainConfig(**raw["train"]),
         eval=EvalConfig(**raw["eval"]),
+        monitoring=_parse_monitoring(raw.get("monitoring", {})),
+    )
+
+
+def _parse_monitoring(raw: dict[str, Any]) -> MonitoringConfig:
+    drift = DriftConfig(**raw.get("drift", {}))
+    performance = PerformanceConfig(**raw.get("performance", {}))
+    retrain = RetrainConfig(**raw.get("retrain", {}))
+    return MonitoringConfig(
+        reference_path=raw.get("reference_path", "data/prepared/train.csv"),
+        inferences_dir=raw.get("inferences_dir", "data/inferences"),
+        reports_dir=raw.get("reports_dir", "reports/monitoring"),
+        drift=drift,
+        performance=performance,
+        retrain=retrain,
     )

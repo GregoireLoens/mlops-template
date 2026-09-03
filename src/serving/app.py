@@ -4,6 +4,11 @@
 - /predict : features brutes -> probabilité de churn (Pipeline sklearn :
   préprocessing identique au training — zéro train/serving skew)
 - /reload  : recharge le modèle pointé par l'alias (utilisé par le rollback)
+- /metrics : exposition Prometheus (compteurs, latences, gauges de drift) —
+  NON routé par nginx (edge publique : /predict et /health uniquement)
+
+BP3 : chaque /predict réussi est loggé en JSONL horodaté (BackgroundTasks,
+non-bloquant) sauf si LOG_INFERENCES=false.
 
 Config par variables d'environnement (aucun chemin ni clé en dur) :
 MODEL_NAME, MODEL_ALIAS (défaut prod), MLFLOW_TRACKING_URI,
@@ -20,17 +25,22 @@ from typing import Annotated, Literal
 
 import mlflow
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Response
 from mlflow.tracking import MlflowClient
 from pydantic import BaseModel, Field
 from sklearn.pipeline import Pipeline
 from src.config import load_params
+from src.serving import inference_log
+from src.serving import metrics as serving_metrics
 
 # Catégories du dataset simulé (cf. generate_raw) : le OneHotEncoder entraîné
 # les connaît ; toute valeur hors Literal est rejetée à la porte (422), on
 # n'envoie jamais silencieusement des vecteurs vides au modèle.
 ContractType = Literal["month_to_month", "one_year", "two_year"]
-SignupChannel = Literal["web", "mobile", "partner"]
+# `referral` = catégorie du dataset d'entraînement (cf. generate_raw) ;
+# `partner` est conservé pour compatibilité (OneHot(handle_unknown=ignore)
+# : une catégorie jamais vue dégrade la prédiction sans planter le serving.
+SignupChannel = Literal["web", "mobile", "partner", "referral"]
 
 _state: dict[str, str | None] = {"model_version": None}  # version servie (probe /rollback)
 
@@ -75,6 +85,7 @@ class PredictResponse(BaseModel):
     churn_probability: float
     churn: bool
     model_version: str | None
+    prediction_id: str
 
 
 @app.get("/health")
@@ -85,17 +96,31 @@ def health() -> dict:
 
 
 @app.post("/predict", response_model=PredictResponse)
-def predict(req: PredictRequest) -> PredictResponse:
+def predict(req: PredictRequest, background: BackgroundTasks) -> PredictResponse:
     if os.getenv("SERVE_FAILURE") == "1":
         # Simulation d'un canary dégradé : la gate smoke-test doit le détecter.
+        serving_metrics.observe_request("POST", "/predict", 500, _state["model_version"], 0.0)
         raise HTTPException(status_code=500, detail="échec simulé (SERVE_FAILURE)")
-    df = pd.DataFrame([req.model_dump()])
-    proba = float(_model().predict_proba(df)[0, 1])
-    return PredictResponse(
+    with serving_metrics.timed() as holder:
+        df = pd.DataFrame([req.model_dump()])
+        proba = float(_model().predict_proba(df)[0, 1])
+    resp = PredictResponse(
         churn_probability=proba,
         churn=proba >= 0.5,
         model_version=_state["model_version"],
+        prediction_id=inference_log.new_prediction_id(),
     )
+    serving_metrics.observe_request("POST", "/predict", 200, _state["model_version"], holder[0])
+    # Logging asynchrone : la persistance JSONL ne retarde jamais la réponse.
+    background.add_task(
+        inference_log.log_inference,
+        req.model_dump(),
+        resp.churn_probability,
+        resp.churn,
+        _state["model_version"],
+        prediction_id=resp.prediction_id,
+    )
+    return resp
 
 
 @app.post("/reload")
@@ -103,3 +128,9 @@ def reload_model() -> dict:
     _model.cache_clear()
     _model()
     return {"status": "rechargé", "model_version": _state["model_version"]}
+
+
+@app.get("/metrics")
+def prometheus_metrics() -> Response:
+    payload, content_type = serving_metrics.exposition()
+    return Response(content=payload, media_type=content_type)

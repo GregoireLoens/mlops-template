@@ -23,6 +23,9 @@ data/*
 !data/*.dvc
 !data/README.md
 /reports/data_docs
+# BP3 : logs d'inférence locaux + rapports de drift (artefacts régénérables).
+/data/inferences
+/reports/monitoring
 
 # MLflow local (sans serveur)
 mlruns/

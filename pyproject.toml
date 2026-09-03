@@ -24,8 +24,12 @@ dependencies = [
 [project.optional-dependencies]
 serving = [
     "fastapi>=0.115,<1",
+    "prometheus-client>=0.20,<1",
     "pydantic>=2.9,<3",
     "uvicorn>=0.32,<1",
+]
+monitoring = [
+    "evidently>=0.7,<1",
 ]
 dev = [
     "pre-commit>=4.0",

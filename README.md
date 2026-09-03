@@ -6,6 +6,7 @@ Template MLOps réutilisable, agnostique cloud, conçu pour être adapté par cl
 
 - **BP1 — training reproductible** : DVC (données), Feast (features), MLflow (expériences/registre), Dagster (orchestration).
 - **BP2 — CI/CD modèle** : Great Expectations en gate bloquante, tests de modèle (métriques/invariance/comportement), promotion par alias MLflow, canary + rollback.
+- **BP3 — monitoring & retrain loop** : inference logging JSONL, drift Evidently (data + prédiction), performance différée (vérité retardée), gauges Prometheus, arbitrage + sensor Dagster → réentraînement auto.
 
 Le repo se construit pas à pas : chaque étape est un commit autonome, chaque
 module a son README court. L'historique git est le support de formation.
@@ -33,8 +34,14 @@ flowchart LR
         PR[["alias prod"]]
     end
     subgraph serving["Serving (BP2)"]
-        API["FastAPI<br/>/health /predict"]
+        API["FastAPI<br/>/health /predict /metrics"]
         NGX["nginx 90/10<br/>canary"]
+    end
+    subgraph monitoring["Monitoring (BP3)"]
+        LOG["inferences.jsonl<br/>BackgroundTasks"]
+        EV["Evidently<br/>drift_report.html"]
+        PRM["Prometheus<br/>:9090"]
+        SEN["Dagster drift_sensor<br/>monitoring_job"]
     end
     RAW --> PREP --> GE --> TR
     PREP --> FV --> ONL
@@ -43,6 +50,10 @@ flowchart LR
     TR --> CH
     CH -- "tests verts + métrique" --> PR
     PR --> API --> NGX
+    API --> LOG --> EV
+    EV --> PRM
+    EV -- "drift + volume + cooldown" --> SEN
+    SEN -- "retrain auto" --> TR
     DAG["Dagster training_job"] -. "mêmes fonctions src/" .-> PREP
     DAG -.-> ONL
     DAG -.-> TR
@@ -215,6 +226,29 @@ dégradation se simule avec `SERVE_FAILURE_CANARY=1` (le smoke-test doit
 version antérieure du journal puis recrée les conteneurs — vérifiable en
 une ligne : `curl localhost:8090/health` affiche la version servie.
 
+## Monitoring & retrain loop — BP3
+
+```bash
+# 1. Trafic : le serving loggue chaque /predict (BackgroundTasks, JSONL).
+make simulate-traffic ARGS="--mode nominal --n 500"        # baseline
+make simulate-traffic ARGS="--mode data-drift --n 500"     # dérive features
+make simulate-traffic ARGS="--mode concept-drift --n 500 --with-ground-truth /tmp/gt.csv"
+# 2. Drift : Evidently (HTML) + verdict JSON (seuils params.yaml/monitoring).
+make drift-report                        # sur les logs récents
+make drift-report ARGS="--current data/prepared/test.csv --ground-truth /tmp/gt.csv"
+# 3. Arbitrage : drift + volume (min_new_rows) + cooldown (24h).
+make drift-check                          # décision seule (exit 2 = retrain requis)
+make retrain-if-drifted                   # déclenche le training (cron/CI)
+make monitoring-up                        # Prometheus :9090 (scrape /metrics)
+make monitoring-run                       # job Dagster monitoring_job (sensor : 30 min)
+```
+
+Règles : trafic nominal → `dataset_drift=false`, pas de retrain ; trafic
+dérivé → alerte + colonnes en faute (`monthly_fee`, `tenure_months`,
+`num_support_calls`) → retrain si le volume le permet. Détail : ADR
+`docs/adr/0004-monitoring-and-drift.md`, READMEs `src/serving/` et
+`src/monitoring/`.
+
 ## CI / CD
 
 - **CI** (`.github/workflows/ci.yml`) : lint (ruff+mypy), tests unitaires,
@@ -228,15 +262,17 @@ une ligne : `curl localhost:8090/health` affiche la version servie.
 
 ## Matrice de décision — passer à l'échelle chez un client
 
-| Composant       | Template (local)             | Montée en charge                                             |
-| --------------- | ---------------------------- | ------------------------------------------------------------ |
-| Cache DVC       | `.dvc/cache` local           | remote S3/MinIO (`dvc remote add`, cf. `data/README.md`)     |
-| MLflow backend  | sqlite + `--serve-artifacts` | profil compose postgres, puis managed + artefacts S3         |
-| MLflow registry | alias sur le serveur local   | même API : le serving ne change pas (alias `prod`)           |
-| Feast store     | file + sqlite                | offline sur data lake, online Redis/Postgres (mêmes repos)   |
-| Orchestration   | `dagster dev` local          | Dagster Cloud/k8s : les assets et le job sont réutilisables  |
-| Serving         | compose (nginx 90/10)        | même image en k8s : Canary/Argo rollouts pilotés par l'alias |
-| CI/CD           | GH Actions, runners GitHub   | self-hosted runner au choix — les jobs ne supposent rien     |
+| Composant       | Template (local)                | Montée en charge                                             |
+| --------------- | ------------------------------- | ------------------------------------------------------------ |
+| Cache DVC       | `.dvc/cache` local              | remote S3/MinIO (`dvc remote add`, cf. `data/README.md`)     |
+| MLflow backend  | sqlite + `--serve-artifacts`    | profil compose postgres, puis managed + artefacts S3         |
+| MLflow registry | alias sur le serveur local      | même API : le serving ne change pas (alias `prod`)           |
+| Feast store     | file + sqlite                   | offline sur data lake, online Redis/Postgres (mêmes repos)   |
+| Orchestration   | `dagster dev` local             | Dagster Cloud/k8s : les assets et le job sont réutilisables  |
+| Serving         | compose (nginx 90/10)           | même image en k8s : Canary/Argo rollouts pilotés par l'alias |
+| Logs inférence  | JSONL local (`data/inferences`) | Parquet partitionné S3/MinIO (même contrat + prediction_id)  |
+| Métriques       | Prometheus local (:9090)        | managed Prometheus/Grafana (mêmes noms de métriques)         |
+| CI/CD           | GH Actions, runners GitHub      | self-hosted runner au choix — les jobs ne supposent rien     |
 
 ## Adapter ce template chez un client — checklist
 
@@ -269,3 +305,4 @@ une ligne : `curl localhost:8090/health` affiche la version servie.
 - [x] **Étape 9** — CI (lint, unitaires, intégration DVC+GE+modèle, caches, résumé PR)
 - [x] **Étape 10** — serving FastAPI par alias, canary 90/10 nginx, smoke + rollback
 - [x] **Étape 11** — documentation finale (architecture, ADR, matrice, checklist)
+- [x] **BP3** — monitoring production : inference logging, drift Evidently, performance différée, Prometheus, retrain loop (Dagster sensor + CLI)

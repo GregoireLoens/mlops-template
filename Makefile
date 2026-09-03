@@ -92,6 +92,30 @@ smoke: ## Smoke-test canary — exit 1 si le mix dégrade le taux d'erreur
 serve-down: ## Arrête le serving SEULEMENT (mlflow reste up)
 	$(COMPOSE) rm -sf serving-stable serving-canary nginx
 
+.PHONY: monitoring-up
+monitoring-up: ## Prometheus local :9090 (scrape /metrics du serving)
+	$(COMPOSE) --profile monitoring up -d --wait prometheus
+
+.PHONY: drift-report
+drift-report: ## Rapport Evidently + résumé JSON (fenêtre d'inférences vs baseline DVC)
+	.venv/bin/python -m src.monitoring.drift_detector $(ARGS)
+
+.PHONY: drift-check
+drift-check: ## Décision de réentraînement (exit 2 si retrain requis, sans déclencher)
+	.venv/bin/python -m src.monitoring.retrain_policy --check; test $$? -ne 0 || true
+
+.PHONY: retrain-if-drifted
+retrain-if-drifted: ## Réentraîne (training DVC) si drift + volume + cooldown OK (cron/CI)
+	.venv/bin/python -m src.monitoring.retrain_policy
+
+.PHONY: simulate-traffic
+simulate-traffic: ## Trafic simulé vers le serving (ARGS="--mode data-drift --n 500")
+	.venv/bin/python -m src.monitoring.simulate_production $(ARGS)
+
+.PHONY: monitoring-run
+monitoring-run: ## Job Dagster monitoring (drift -> arbitrage -> retrain conditionnel)
+	.venv/bin/dagster job execute -m pipelines.monitoring_pipeline -j monitoring_job
+
 .PHONY: dagster-dev
 dagster-dev: ## UI Dagster locale — job training_job (validate->feast->train->promote)
 	.venv/bin/dagster dev -m pipelines

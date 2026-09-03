@@ -30,3 +30,23 @@ eval:
   min_accuracy: 0.70
   min_f1: 0.35
   min_roc_auc: 0.70
+
+# Monitoring production (BP3) : fenêtre d'inférences, seuils de drift et
+# politique de réentraînement. La fenêtre minimale (min_current_rows)
+# garantit la significativité statistique des tests (KS/Chi-2) — cf. ADR-011.
+monitoring:
+  reference_path: data/prepared/train.csv
+  inferences_dir: data/inferences
+  reports_dir: reports/monitoring
+  drift:
+    share_threshold: 0.3
+    pvalue_threshold: 0.05
+    min_current_rows: 200
+    min_reference_rows: 200
+  performance:
+    min_roc_auc: 0.65
+    min_accuracy: 0.65
+    drop_tolerance: 0.05
+  retrain:
+    min_new_rows: 500
+    cooldown_hours: 24

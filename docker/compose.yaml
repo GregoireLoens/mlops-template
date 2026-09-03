@@ -74,6 +74,11 @@ services:
       MODEL_ALIAS: prod
       MLFLOW_TRACKING_URI: http://mlflow:5000
       SERVE_FAILURE: ${SERVE_FAILURE_STABLE:-0}
+      LOG_INFERENCES: ${LOG_INFERENCES:-true}
+    volumes:
+      # BP3 : les logs d'inférence JSONL sont lisibles depuis l'hôte
+      # (drift_detector, sans docker exec) — même partition par jour.
+      - ../data/inferences:/app/data/inferences
     depends_on:
       mlflow:
         condition: service_healthy
@@ -105,6 +110,10 @@ services:
       MODEL_ALIAS: prod
       MLFLOW_TRACKING_URI: http://mlflow:5000
       SERVE_FAILURE: ${SERVE_FAILURE_CANARY:-0}
+      LOG_INFERENCES: ${LOG_INFERENCES:-true}
+    volumes:
+      # BP3 : cf. serving-stable — les deux réplicas partagent la partition.
+      - ../data/inferences:/app/data/inferences
     depends_on:
       mlflow:
         condition: service_healthy
@@ -135,6 +144,20 @@ services:
       - serving-canary
     ports:
       - "127.0.0.1:8090:8080" # NB : 8080 peut être occupé par d'autres services locaux
+    restart: unless-stopped
+
+  # --- Monitoring BP3 (profil "monitoring") : Prometheus minimaliste qui
+  # scrape /metrics des deux réplicas de serving (internes :8001/:8002).
+  # L'edge nginx n'expose QUE /predict et /health : /metrics n'est pas
+  # routé publiquement (cf. docker/serving/nginx.conf, règle 404 explicite).
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: mlops-prometheus
+    profiles: ["monitoring"]
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "127.0.0.1:9090:9090"
     restart: unless-stopped
 
 volumes:

@@ -1,0 +1,16 @@
+# Prometheus minimaliste du template (profil compose `monitoring`).
+# Scrape /metrics des deux réplicas de serving (réseau compose interne).
+# Requêtes utiles : data_drift_share, prediction_drift_share,
+# histogram_quantile(0.95, rate(inference_latency_seconds_bucket[5m])).
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: churn-serving
+    static_configs:
+      - targets:
+          - serving-stable:8000
+          - serving-canary:8000
+        labels:
+          service: churn-serving
