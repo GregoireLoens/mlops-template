@@ -52,6 +52,8 @@ class Decision:
 
 
 def _setup() -> None:
+    # Serveur down : fail fast (sinon backoff exponentiel MLflow, minutes).
+    os.environ.setdefault("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "2")
     uri = os.getenv("MLFLOW_TRACKING_URI")
     if uri:
         mlflow.set_tracking_uri(uri)

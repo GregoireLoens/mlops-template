@@ -19,6 +19,8 @@ from src.training.train import MODEL_PATH
 
 def load_challenger(params: Params | None = None) -> tuple[Pipeline, str]:
     """Retourne (modèle, source) : 'registry v<N>' ou 'local' (fallback)."""
+    # Serveur down : fail fast (sinon backoff exponentiel MLflow, minutes).
+    os.environ.setdefault("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "2")
     params = params or load_params()
     uri = os.getenv("MLFLOW_TRACKING_URI")
     if uri:

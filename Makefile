@@ -89,8 +89,8 @@ smoke: ## Smoke-test canary — exit 1 si le mix dégrade le taux d'erreur
 	.venv/bin/python -m src.serving.smoke --url http://localhost:8090 --baseline http://localhost:8001
 
 .PHONY: serve-down
-serve-down: ## Arrête le serving (mlflow reste up)
-	$(COMPOSE) --profile serving down --remove-orphans
+serve-down: ## Arrête le serving SEULEMENT (mlflow reste up)
+	$(COMPOSE) rm -sf serving-stable serving-canary nginx
 
 .PHONY: dagster-dev
 dagster-dev: ## UI Dagster locale — job training_job (validate->feast->train->promote)

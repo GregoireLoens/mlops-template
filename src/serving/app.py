@@ -38,6 +38,8 @@ _state: dict[str, str | None] = {"model_version": None}
 @lru_cache(maxsize=1)
 def _model() -> Pipeline:
     """Charge UNE fois le pipeline sklearn (thread-safe via lru_cache)."""
+    # Serveur down : fail fast (sinon backoff exponentiel MLflow, minutes).
+    os.environ.setdefault("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "2")
     params = load_params()
     alias = os.getenv("MODEL_ALIAS", "prod")
     uri = os.getenv("MLFLOW_TRACKING_URI")
