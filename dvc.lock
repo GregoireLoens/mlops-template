@@ -10,8 +10,8 @@ stages:
       nfiles: 1
     - path: src/config.py
       hash: md5
-      md5: c01585ab5ec542ef6b8b1a0afa5feab9
-      size: 1356
+      md5: c2e7807093db78afab9071946607fe8b
+      size: 1546
     - path: src/data/prepare.py
       hash: md5
       md5: a71e5a1efcc333c3df0d83e4d854076d
@@ -41,17 +41,17 @@ stages:
       nfiles: 4
     - path: reports
       hash: md5
-      md5: dc77596f6bfc73a8e169817076f200ee.dir
-      size: 4446217
-      nfiles: 29
+      md5: 98fcfb2c963f78434d43eea98549ac6d.dir
+      size: 4601020
+      nfiles: 32
     - path: src/config.py
       hash: md5
-      md5: c01585ab5ec542ef6b8b1a0afa5feab9
-      size: 1356
+      md5: c2e7807093db78afab9071946607fe8b
+      size: 1546
     - path: src/training/train.py
       hash: md5
-      md5: e9873e667b17177828f67543e30203cd
-      size: 4752
+      md5: e46585af9148fc99519c554d862e2ee6
+      size: 7892
     params:
       params.yaml:
         features:
@@ -72,15 +72,17 @@ stages:
           rf:
             n_estimators: 200
             max_depth: 8
+          model_name: churn-template
     outs:
     - path: metrics.json
       hash: md5
       md5: 30dc5e156d57489fe3a6bd754a3bfe99
       size: 154
-    - path: models/model.pkl
+    - path: models
       hash: md5
-      md5: 29ce92da37eb7b09e9a600dcf8b45fd4
-      size: 3777
+      md5: ddb164946f9d130dfffcc3644bdf52a7.dir
+      size: 18633
+      nfiles: 3
   validate:
     cmd: python -m src.data.validate
     deps:
@@ -96,8 +98,8 @@ stages:
       nfiles: 1
     - path: src/config.py
       hash: md5
-      md5: c01585ab5ec542ef6b8b1a0afa5feab9
-      size: 1356
+      md5: c2e7807093db78afab9071946607fe8b
+      size: 1546
     - path: src/data/expectations.py
       hash: md5
       md5: c5276ab18ed3555006f78e611754af7c
@@ -128,6 +130,6 @@ stages:
     outs:
     - path: reports
       hash: md5
-      md5: dc77596f6bfc73a8e169817076f200ee.dir
-      size: 4446217
-      nfiles: 29
+      md5: 98fcfb2c963f78434d43eea98549ac6d.dir
+      size: 4601020
+      nfiles: 32

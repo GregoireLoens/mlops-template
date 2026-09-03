@@ -60,6 +60,11 @@ feast-materialize: ## Matérialise les features vers l'online store local
 train-feast: ## Entraîne via les features servies par Feast (historical)
 	.venv/bin/python -m src.training.train --source feast
 
+.PHONY: train
+train: ## Pipeline complet : stack up + dvc repro (gate GE) + log MLflow
+	$(MAKE) up
+	$(MAKE) repro
+
 .PHONY: up
 up: ## Démarre la stack locale (MLflow : tracking + registre + artefacts)
 	$(COMPOSE) up -d --build --wait

@@ -42,7 +42,7 @@ stages:
       - train
       - features
     outs:
-      - models/model.pkl
+      - models # dir : model.pkl + model_card.md (tout le contenu est tracé)
     metrics:
       - metrics.json:
           cache: false # petit fichier commité : `dvc metrics diff` en PR

@@ -91,11 +91,11 @@ fluent_datasources:
     assets:
       test_data:
         type: dataframe
-        id: f97a63f3-8f6b-46c1-9d17-53ea13d22121
+        id: 71c1ef06-2c97-4295-b6f2-de587cc3987f
         batch_metadata: {}
         batch_definitions:
           whole:
-            id: dae6e7bc-c6b7-432c-9e69-e0a4353dbbe9
+            id: 2e6fd6b9-9ad8-4cd4-bb79-0e414c8b8a87
             partitioner:
 analytics_enabled:
 data_context_id: c38263ad-cf6f-4c36-993b-a970ce86c45b

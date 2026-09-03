@@ -22,3 +22,11 @@ train:
   rf:
     n_estimators: 200
     max_depth: 8
+  # Nom du modèle dans le registre MLflow (aliases : challenger / prod).
+  model_name: churn-template
+
+# Seuils minimaux : gate des tests modèle (étape 6) et prérequis de promotion (étape 8).
+eval:
+  min_accuracy: 0.70
+  min_f1: 0.35
+  min_roc_auc: 0.70

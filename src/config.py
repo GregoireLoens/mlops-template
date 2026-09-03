@@ -39,6 +39,14 @@ class TrainConfig:
     model_type: str
     logreg: dict[str, Any]
     rf: dict[str, Any]
+    model_name: str
+
+
+@dataclass(frozen=True)
+class EvalConfig:
+    min_accuracy: float
+    min_f1: float
+    min_roc_auc: float
 
 
 @dataclass(frozen=True)
@@ -46,6 +54,7 @@ class Params:
     data: DataConfig
     features: FeaturesConfig
     train: TrainConfig
+    eval: EvalConfig
 
 
 def load_params(path: Path = PARAMS_FILE) -> Params:
@@ -55,4 +64,5 @@ def load_params(path: Path = PARAMS_FILE) -> Params:
         data=DataConfig(**raw["data"]),
         features=FeaturesConfig(**raw["features"]),
         train=TrainConfig(**raw["train"]),
+        eval=EvalConfig(**raw["eval"]),
     )
