@@ -4,10 +4,16 @@ version = "0.1.0"
 description = "Template MLOps reproductible : training versionné (DVC, Feast, MLflow, Dagster) + CI/CD modèle (Great Expectations, promotion par alias, canary)."
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
-license = { text = "MIT" }
+license = { text = "Apache-2.0" }
 # Dépendances runtime ajoutées au fil des étapes (2 à 10) : l'historique de
 # ce fichier suit la construction du template, étape par étape.
-dependencies = []
+dependencies = [
+    "dvc>=3.60,<4",
+    "numpy>=2.0,<3",
+    "pandas>=2.2,<3",
+    "pyyaml>=6.0,<7",
+    "scikit-learn>=1.6,<2",
+]
 
 [project.optional-dependencies]
 dev = [

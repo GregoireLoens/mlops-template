@@ -2,6 +2,10 @@
 .DEFAULT_GOAL := help
 SHELL := /bin/bash
 
+# Venv projet en tête de PATH pour toutes les recettes (et les sous-processus
+# DVC/Dagster) : `python` dans dvc.yaml résout .venv sans activation manuelle.
+export PATH := $(CURDIR)/.venv/bin:$(PATH)
+
 # Compose : fichier dans docker/, .env optionnel (créé par `make setup`).
 ENV_FILE := $(if $(wildcard .env),$(abspath .env),/dev/null)
 COMPOSE := docker compose --env-file $(ENV_FILE) -f docker/compose.yaml
@@ -30,6 +34,19 @@ else
 	.venv/bin/pip install -e ".[dev]"
 endif
 	.venv/bin/pre-commit install
+
+.PHONY: data
+data: ## Génère le dataset simulé et le versionne via DVC (data/raw.dvc)
+	.venv/bin/python -m src.data.generate_raw
+	.venv/bin/dvc add data/raw
+
+.PHONY: repro
+repro: ## Exécute le pipeline DVC (prepare -> train)
+	.venv/bin/dvc repro
+
+.PHONY: metrics
+metrics: ## Affiche les métriques DVC du dernier run
+	.venv/bin/dvc metrics show
 
 .PHONY: up
 up: ## Démarre la stack locale (MLflow : tracking + registre + artefacts)

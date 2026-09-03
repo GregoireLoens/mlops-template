@@ -1,0 +1,27 @@
+stages:
+  # Chaque étape appelle le même code que Dagster (src/) — DVC est la vue
+  # "données + cache", Dagster la vue "orchestration", zéro duplication.
+  prepare:
+    cmd: python -m src.data.prepare
+    deps:
+      - data/raw
+      - src/data/prepare.py
+      - src/config.py
+    params:
+      - data
+    outs:
+      - data/prepared
+  train:
+    cmd: python -m src.training.train
+    deps:
+      - data/prepared
+      - src/training/train.py
+      - src/config.py
+    params:
+      - train
+      - features
+    outs:
+      - models/model.pkl
+    metrics:
+      - metrics.json:
+          cache: false # petit fichier commité : `dvc metrics diff` en PR

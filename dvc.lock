@@ -1,0 +1,78 @@
+schema: '2.0'
+stages:
+  prepare:
+    cmd: python -m src.data.prepare
+    deps:
+    - path: data/raw
+      hash: md5
+      md5: 69cf310e153335ce44340fc9097363de.dir
+      size: 579761
+      nfiles: 1
+    - path: src/config.py
+      hash: md5
+      md5: c01585ab5ec542ef6b8b1a0afa5feab9
+      size: 1356
+    - path: src/data/prepare.py
+      hash: md5
+      md5: 5722fdd68acc76e4438429c01de40e72
+      size: 1848
+    params:
+      params.yaml:
+        data:
+          raw_path: data/raw/data.csv
+          train_path: data/prepared/train.csv
+          test_path: data/prepared/test.csv
+          target: churn
+          test_size: 0.2
+          seed: 42
+    outs:
+    - path: data/prepared
+      hash: md5
+      md5: e761aee0c53d5524cd8fef97b49ed3e1.dir
+      size: 579878
+      nfiles: 2
+  train:
+    cmd: python -m src.training.train
+    deps:
+    - path: data/prepared
+      hash: md5
+      md5: e761aee0c53d5524cd8fef97b49ed3e1.dir
+      size: 579878
+      nfiles: 2
+    - path: src/config.py
+      hash: md5
+      md5: c01585ab5ec542ef6b8b1a0afa5feab9
+      size: 1356
+    - path: src/training/train.py
+      hash: md5
+      md5: 50c40a46434ff55eb1356db00c023465
+      size: 3527
+    params:
+      params.yaml:
+        features:
+          numeric:
+          - age
+          - tenure_months
+          - monthly_fee
+          - num_support_calls
+          - has_premium
+          categorical:
+          - contract_type
+          - signup_channel
+        train:
+          model_type: logreg
+          logreg:
+            C: 1.0
+            max_iter: 500
+          rf:
+            n_estimators: 200
+            max_depth: 8
+    outs:
+    - path: metrics.json
+      hash: md5
+      md5: 30dc5e156d57489fe3a6bd754a3bfe99
+      size: 154
+    - path: models/model.pkl
+      hash: md5
+      md5: 29ce92da37eb7b09e9a600dcf8b45fd4
+      size: 3777

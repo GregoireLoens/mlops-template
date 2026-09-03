@@ -1,0 +1,24 @@
+# Source de vérité unique des hyperparamètres et des chemins.
+# Lu par : DVC (deps params des étapes => repro sélectif), Dagster (étape 7),
+# les tests. Un changement ici => re-exécution uniquement des étapes concernées.
+data:
+  raw_path: data/raw/data.csv
+  train_path: data/prepared/train.csv
+  test_path: data/prepared/test.csv
+  target: churn
+  test_size: 0.2
+  seed: 42
+
+features:
+  numeric: [age, tenure_months, monthly_fee, num_support_calls, has_premium]
+  categorical: [contract_type, signup_channel]
+
+train:
+  # logreg | rf : deux estimateurs pour tester la bascule via params seul.
+  model_type: logreg
+  logreg:
+    C: 1.0
+    max_iter: 500
+  rf:
+    n_estimators: 200
+    max_depth: 8
