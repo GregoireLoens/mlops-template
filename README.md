@@ -1,5 +1,7 @@
 # mlops-template
 
+![CI](https://github.com/GregoireLoens/mlops-template/actions/workflows/ci.yml/badge.svg)
+
 Template MLOps réutilisable, agnostique cloud, conçu pour être adapté par client.
 
 - **BP1 — training reproductible** : DVC (données), Feast (features), MLflow (expériences/registre), Dagster (orchestration).

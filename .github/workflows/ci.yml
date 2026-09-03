@@ -1,0 +1,90 @@
+# CI : lint + tests unitaires + pipeline d'intégration (gate GE incluse).
+# Les données brutes ne sont PAS commitées (seul le pointeur data/raw.dvc
+# l'est) : le job integration régénère le dataset déterministe, le hash DVC
+# est donc identique à celui du dvc.lock committé.
+# MLflow tourne sans serveur en CI : sqlite + registre local (aucun docker).
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: lint (ruff + mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv python install
+      - run: uv sync --extra dev
+      - name: ruff
+        run: uv run ruff check src pipelines tests && uv run ruff format --check src pipelines tests
+      - name: mypy
+        run: uv run mypy
+
+  unit-tests:
+    name: tests unitaires
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv python install
+      - run: uv sync --extra dev
+      # tests/model : skip propre si models/model.pkl absent (pas de repro ici)
+      - run: uv run pytest -m "not integration" -q
+
+  integration:
+    name: pipeline complet (DVC + gate GE + tests modèle)
+    runs-on: ubuntu-latest
+    env:
+      # MLflow sans serveur : tracking + registre sur sqlite local.
+      MLFLOW_TRACKING_URI: sqlite:///mlflow.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Cache DVC (datasets préparés, modèles)
+        uses: actions/cache@v4
+        with:
+          path: .dvc/cache
+          key: dvc-${{ hashFiles('dvc.lock') }}
+          restore-keys: dvc-
+      - run: uv python install
+      - name: Environnement projet
+        run: uv sync --extra dev
+      - name: Dataset simulé (déterministe — hash = dvc.lock)
+        run: |
+          .venv/bin/python -m src.data.generate_raw
+          .venv/bin/dvc add data/raw
+      - name: Pipeline DVC (prepare -> gate GE -> train + registre MLflow)
+        run: .venv/bin/dvc repro
+      - name: Tests modèle sur le challenger (seuils + invariance + comportement)
+        run: .venv/bin/pytest tests/model -q
+      - name: Résumé dans la PR
+        if: success()
+        run: |
+          {
+            echo "## Métriques du modèle (jeu de test)"
+            echo '```json'
+            cat metrics.json
+            echo '```'
+            echo "**Gate Great Expectations** : bloquante (rapport versionné sous \`reports/data_docs\`)"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Rapport GE en artefact (diagnostic)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: data-docs
+          path: reports/data_docs
