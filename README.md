@@ -70,10 +70,34 @@ dépendance des étapes DVC — chaque étape ne relance que si SA section chang
 Le contenu de `data/` vit dans le cache DVC ; git ne suit que les pointeurs
 (`data/raw.dvc`, `dvc.lock`). Remote distant (S3/MinIO) : cf. `data/README.md`.
 
+## Gate données — Great Expectations (étape 3)
+
+`make repro` enchaîne prepare -> **validate** -> train. Le train ne s'exécute
+que si la validation passe : le DAG DVC rend l'ordre structurel (`train` dépend
+de `reports/`, l'out de `validate`).
+
+- Suites définies **en code** (`src/data/expectations.py`) : schéma exact, plages,
+  ensembles, distribution clé (taux de churn) — revues en PR comme du code.
+- Rapport HTML **versionné** : `reports/data_docs/` est un out DVC (tracé dans
+  `dvc.lock`), publié même quand la gate est rouge.
+- Test de blocage (à refaire chez un client) :
+
+  ```bash
+  .venv/bin/python -m src.data.generate_raw --drift corrupt   # nulls + hors-plage + catégorie inconnue
+  make repro        # -> [PIPELINE BLOQUÉ — gate GE] : détail par dataset et par colonne
+  # recovery (dvc repro en échec réécrit le pointeur du dataset modifié) :
+  git checkout -- data/raw.dvc dvc.lock && dvc checkout data/raw.dvc && dvc checkout
+  make repro        # vert à nouveau
+  ```
+
+- Le drift de distribution (`--drift shift`) est bloqué aussi : l'expectation de
+  moyenne sur la cible (`churn`) sort de ses bornes.
+
 ## État d'avancement
 
 - [x] **Étape 1** — squelette reproductible (uv 3.11, pre-commit, compose MLflow, Makefile)
 - [x] **Étape 2** — données versionnées DVC (dataset simulé, prepare/train, params.yaml)
-- [ ] Étape 3 — Great Expectations · Étape 4 — Feast
+- [x] **Étape 3** — gate GE bloquante (suites en code, rapport HTML versionné, blocage testé)
+- [ ] Étape 4 — Feast
 - [ ] Étapes 5-8 — training/MLflow, tests modèle, Dagster, promotion
 - [ ] Étapes 9-11 — CI, CD/canary/rollback, documentation

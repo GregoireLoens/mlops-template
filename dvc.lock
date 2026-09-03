@@ -14,8 +14,8 @@ stages:
       size: 1356
     - path: src/data/prepare.py
       hash: md5
-      md5: 5722fdd68acc76e4438429c01de40e72
-      size: 1848
+      md5: 4f0c30a047163d6005c3b7ee201b4a5c
+      size: 1847
     params:
       params.yaml:
         data:
@@ -39,14 +39,19 @@ stages:
       md5: e761aee0c53d5524cd8fef97b49ed3e1.dir
       size: 579878
       nfiles: 2
+    - path: reports
+      hash: md5
+      md5: fa2d4db51e7869c44ea269768befee13.dir
+      size: 4291414
+      nfiles: 26
     - path: src/config.py
       hash: md5
       md5: c01585ab5ec542ef6b8b1a0afa5feab9
       size: 1356
     - path: src/training/train.py
       hash: md5
-      md5: 50c40a46434ff55eb1356db00c023465
-      size: 3527
+      md5: 2d43e590079b4c3bd3493e07dfa8a5db
+      size: 3526
     params:
       params.yaml:
         features:
@@ -76,3 +81,53 @@ stages:
       hash: md5
       md5: 29ce92da37eb7b09e9a600dcf8b45fd4
       size: 3777
+  validate:
+    cmd: python -m src.data.validate
+    deps:
+    - path: data/prepared
+      hash: md5
+      md5: e761aee0c53d5524cd8fef97b49ed3e1.dir
+      size: 579878
+      nfiles: 2
+    - path: data/raw
+      hash: md5
+      md5: 69cf310e153335ce44340fc9097363de.dir
+      size: 579761
+      nfiles: 1
+    - path: src/config.py
+      hash: md5
+      md5: c01585ab5ec542ef6b8b1a0afa5feab9
+      size: 1356
+    - path: src/data/expectations.py
+      hash: md5
+      md5: c5276ab18ed3555006f78e611754af7c
+      size: 4375
+    - path: src/data/validate.py
+      hash: md5
+      md5: b3a092fd3d7c526835e3e6474a8950bb
+      size: 7280
+    params:
+      params.yaml:
+        data:
+          raw_path: data/raw/data.csv
+          train_path: data/prepared/train.csv
+          test_path: data/prepared/test.csv
+          target: churn
+          test_size: 0.2
+          seed: 42
+        features:
+          numeric:
+          - age
+          - tenure_months
+          - monthly_fee
+          - num_support_calls
+          - has_premium
+          categorical:
+          - contract_type
+          - signup_channel
+    outs:
+    - path: reports
+      hash: md5
+      md5: fa2d4db51e7869c44ea269768befee13.dir
+      size: 4291414
+      nfiles: 26

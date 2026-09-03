@@ -5,7 +5,9 @@ repos:
     rev: v6.0.0
     hooks:
       - id: trailing-whitespace
+        exclude: "^gx/" # stores GX générés par le pipeline : on ne les retouche pas
       - id: end-of-file-fixer
+        exclude: "^gx/"
       - id: check-yaml
       - id: check-added-large-files
         args: [--maxkb=1024]
@@ -34,4 +36,4 @@ repos:
     hooks:
       - id: prettier
         types_or: [yaml, json, markdown]
-        exclude: 'dvc\.lock$' # fichier généré par DVC, on ne le retouche pas
+        exclude: '(dvc\.lock$|^gx/)' # fichiers générés (DVC, GX) : pas de reformat

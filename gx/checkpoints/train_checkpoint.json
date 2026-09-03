@@ -1,0 +1,12 @@
+{
+  "actions": [],
+  "id": "65985a48-5d81-454a-be85-f8198a42fb0a",
+  "name": "train_checkpoint",
+  "result_format": "SUMMARY",
+  "validation_definitions": [
+    {
+      "id": "2aac7dbb-f90b-4321-b311-b7b20499ea08",
+      "name": "train_vd"
+    }
+  ]
+}

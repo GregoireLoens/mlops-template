@@ -9,6 +9,7 @@ license = { text = "Apache-2.0" }
 # ce fichier suit la construction du template, étape par étape.
 dependencies = [
     "dvc>=3.60,<4",
+    "great-expectations>=1.3,<2",
     "numpy>=2.0,<3",
     "pandas>=2.2,<3",
     "pyyaml>=6.0,<7",

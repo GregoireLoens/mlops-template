@@ -11,10 +11,31 @@ stages:
       - data
     outs:
       - data/prepared
+
+  # Gate BP2 : les données douteuses n'atteignent jamais le training.
+  # train dépend de `reports` (out de validate) -> l'ordre validate -> train
+  # est garanti par le DAG DVC, pas par une convention.
+  validate:
+    cmd: python -m src.data.validate
+    deps:
+      - data/raw
+      - data/prepared
+      - src/data/validate.py
+      - src/data/expectations.py
+      - src/config.py
+    # NB : pas de dep sur gx/ — le store GE est un cache auto-réparé par le
+    # stage lui-même (les suites vivent en code dans src/data/expectations.py).
+    params:
+      - data
+      - features
+    outs:
+      - reports # rapport HTML (data docs), versionné via dvc.lock
+
   train:
     cmd: python -m src.training.train
     deps:
       - data/prepared
+      - reports # gate : train ne tourne que si validate a produit son rapport
       - src/training/train.py
       - src/config.py
     params:

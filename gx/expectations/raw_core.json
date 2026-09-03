@@ -1,0 +1,177 @@
+{
+  "expectations": [
+    {
+      "id": "8d77e640-a807-4706-af0f-d28e6a31fdf4",
+      "kwargs": {
+        "column_list": [
+          "customer_id",
+          "signup_ts",
+          "age",
+          "tenure_months",
+          "monthly_fee",
+          "num_support_calls",
+          "has_premium",
+          "contract_type",
+          "signup_channel",
+          "churn"
+        ]
+      },
+      "meta": {},
+      "severity": "critical",
+      "type": "expect_table_columns_to_match_ordered_list"
+    },
+    {
+      "id": "40b6c509-bb70-449f-892a-69b1c6c67ac1",
+      "kwargs": {
+        "column": "customer_id"
+      },
+      "meta": {},
+      "severity": "critical",
+      "type": "expect_column_values_to_not_be_null"
+    },
+    {
+      "id": "5f5b19b9-aed2-40ab-bc73-f096ae1b1573",
+      "kwargs": {
+        "column": "customer_id"
+      },
+      "meta": {},
+      "severity": "critical",
+      "type": "expect_column_values_to_be_unique"
+    },
+    {
+      "id": "86729bd0-6bdb-4247-9d1a-77b959b8afed",
+      "kwargs": {
+        "column": "monthly_fee"
+      },
+      "meta": {},
+      "severity": "critical",
+      "type": "expect_column_values_to_not_be_null"
+    },
+    {
+      "id": "30bda6c8-f387-4290-bc96-40fb4d702e70",
+      "kwargs": {
+        "column": "signup_ts",
+        "max_value": "2025-06-30T00:00:00",
+        "min_value": "2025-01-01T00:00:00"
+      },
+      "meta": {},
+      "severity": "critical",
+      "type": "expect_column_values_to_be_between"
+    },
+    {
+      "id": "91b1296b-250a-4a94-9391-fb312d1db695",
+      "kwargs": {
+        "column": "age",
+        "max_value": 75.0,
+        "min_value": 18.0
+      },
+      "meta": {},
+      "severity": "critical",
+      "type": "expect_column_values_to_be_between"
+    },
+    {
+      "id": "1c75d917-e84d-43fe-bbde-c3808bf1940e",
+      "kwargs": {
+        "column": "tenure_months",
+        "max_value": 120.0,
+        "min_value": 0.0
+      },
+      "meta": {},
+      "severity": "critical",
+      "type": "expect_column_values_to_be_between"
+    },
+    {
+      "id": "cf45f00e-3a5f-40c4-9b2f-e6953810dca6",
+      "kwargs": {
+        "column": "monthly_fee",
+        "max_value": 120.0,
+        "min_value": 5.0
+      },
+      "meta": {},
+      "severity": "critical",
+      "type": "expect_column_values_to_be_between"
+    },
+    {
+      "id": "aaabc60b-8c24-4276-83d0-c888f8085cf8",
+      "kwargs": {
+        "column": "num_support_calls",
+        "max_value": 20.0,
+        "min_value": 0.0
+      },
+      "meta": {},
+      "severity": "critical",
+      "type": "expect_column_values_to_be_between"
+    },
+    {
+      "id": "7e773c4e-cf82-42db-8758-f0e659314fa5",
+      "kwargs": {
+        "column": "has_premium",
+        "value_set": [
+          0,
+          1
+        ]
+      },
+      "meta": {},
+      "severity": "critical",
+      "type": "expect_column_values_to_be_in_set"
+    },
+    {
+      "id": "091bb7be-0cff-4223-b154-ff878b835c95",
+      "kwargs": {
+        "column": "contract_type",
+        "value_set": [
+          "month_to_month",
+          "one_year",
+          "two_year"
+        ]
+      },
+      "meta": {},
+      "severity": "critical",
+      "type": "expect_column_values_to_be_in_set"
+    },
+    {
+      "id": "b03409e3-1c7a-46e8-b9d9-97e81974e12a",
+      "kwargs": {
+        "column": "signup_channel",
+        "value_set": [
+          "web",
+          "mobile",
+          "referral"
+        ]
+      },
+      "meta": {},
+      "severity": "critical",
+      "type": "expect_column_values_to_be_in_set"
+    },
+    {
+      "id": "0a2aaeef-1635-4c2a-bac3-e6cc2d6bd042",
+      "kwargs": {
+        "column": "churn",
+        "value_set": [
+          0,
+          1
+        ]
+      },
+      "meta": {},
+      "severity": "critical",
+      "type": "expect_column_values_to_be_in_set"
+    },
+    {
+      "id": "18578275-191b-4b8f-91c2-58021827aa54",
+      "kwargs": {
+        "column": "churn",
+        "max_value": 0.4,
+        "min_value": 0.1
+      },
+      "meta": {},
+      "severity": "critical",
+      "type": "expect_column_mean_to_be_between"
+    }
+  ],
+  "id": "49591a2a-d342-47f3-8404-8f7bbeac1d2f",
+  "meta": {
+    "great_expectations_version": "1.22.0"
+  },
+  "name": "raw_core",
+  "notes": null
+}
