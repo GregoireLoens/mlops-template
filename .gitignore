@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Environnements & secrets
+.venv/
+.env
+
+# Outils
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Données : le contenu est versionné par DVC, pas par git.
+# Les pointeurs *.dvc générés par `dvc add` restent commités.
+data/*
+!data/.gitkeep
+!data/*.dvc

@@ -1,0 +1,14 @@
+# Exclusions du scan DVC : DVC versionne des données, pas du code.
+# Le code et la configuration vivent dans git.
+.git
+.venv
+__pycache__
+*.pyc
+.env
+src
+pipelines
+tests
+docs
+docker
+features
+.github
