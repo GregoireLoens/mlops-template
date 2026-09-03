@@ -39,19 +39,19 @@ stages:
       md5: ec12b5c1b9b8446d3ae3aafc6f6d1406.dir
       size: 745033
       nfiles: 4
-    - path: reports
+    - path: reports/data_docs
       hash: md5
-      md5: 98fcfb2c963f78434d43eea98549ac6d.dir
-      size: 4601020
-      nfiles: 32
+      md5: 2b137a3672485ad8bf4210a8a22ebba7.dir
+      size: 4755822
+      nfiles: 35
     - path: src/config.py
       hash: md5
       md5: c2e7807093db78afab9071946607fe8b
       size: 1546
     - path: src/training/train.py
       hash: md5
-      md5: e46585af9148fc99519c554d862e2ee6
-      size: 7892
+      md5: 025f60adb9fa5ade905f7ce38f225dab
+      size: 7885
     params:
       params.yaml:
         features:
@@ -80,7 +80,7 @@ stages:
       size: 154
     - path: models
       hash: md5
-      md5: ddb164946f9d130dfffcc3644bdf52a7.dir
+      md5: 3addb527af0809347f83206846a4a0b8.dir
       size: 18633
       nfiles: 3
   validate:
@@ -128,8 +128,8 @@ stages:
           - contract_type
           - signup_channel
     outs:
-    - path: reports
+    - path: reports/data_docs
       hash: md5
-      md5: 98fcfb2c963f78434d43eea98549ac6d.dir
-      size: 4601020
-      nfiles: 32
+      md5: 2b137a3672485ad8bf4210a8a22ebba7.dir
+      size: 4755822
+      nfiles: 35

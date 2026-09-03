@@ -29,13 +29,13 @@ stages:
       - data
       - features
     outs:
-      - reports # rapport HTML (data docs), versionné via dvc.lock
+      - reports/data_docs # rapport HTML (data docs), versionné via dvc.lock
 
   train:
     cmd: python -m src.training.train
     deps:
       - data/prepared
-      - reports # gate : train ne tourne que si validate a produit son rapport
+      - reports/data_docs # gate : train ne tourne que si validate a produit son rapport
       - src/training/train.py
       - src/config.py
     params:

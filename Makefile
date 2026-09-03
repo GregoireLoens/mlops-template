@@ -65,6 +65,14 @@ train: ## Pipeline complet : stack up + dvc repro (gate GE) + log MLflow
 	$(MAKE) up
 	$(MAKE) repro
 
+.PHONY: promote
+promote: ## Promotion challenger->prod (gate tests modèle + métriques) + journal
+	.venv/bin/python -m src.training.promote
+
+.PHONY: rollback
+rollback: ## Repointe l'alias prod vers la version précédente (journal)
+	.venv/bin/python -m src.training.promote --rollback
+
 .PHONY: up
 up: ## Démarre la stack locale (MLflow : tracking + registre + artefacts)
 	$(COMPOSE) up -d --build --wait

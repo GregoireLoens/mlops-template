@@ -36,4 +36,4 @@ repos:
     hooks:
       - id: prettier
         types_or: [yaml, json, markdown]
-        exclude: '(dvc\.lock$|^gx/)' # fichiers générés (DVC, GX) : pas de reformat
+        exclude: '(dvc\.lock$|^gx/|promotions\.md$)' # générés/journal : pas de reformat
