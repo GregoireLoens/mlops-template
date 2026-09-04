@@ -87,7 +87,14 @@ def decide(params: Params) -> Decision:
     client = MlflowClient()
     model_name = params.train.model_name
 
-    challenger = client.get_model_version_by_alias(model_name, "challenger")
+    try:
+        challenger = client.get_model_version_by_alias(model_name, "challenger")
+    except Exception as exc:
+        raise RuntimeError(
+            "aucun alias challenger dans le registre (serveur reconstruit ou "
+            "training skippé par le cache DVC ?) : entraîner d'abord "
+            "(`make train` puis `make promote`)"
+        ) from exc
     challenger_metric = _metric_of(client, "challenger", model_name)
 
     try:

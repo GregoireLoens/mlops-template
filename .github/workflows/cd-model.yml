@@ -66,12 +66,10 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Cache DVC
-        uses: actions/cache@v6
-        with:
-          path: .dvc/cache
-          key: dvc-${{ hashFiles('dvc.lock') }}
-          restore-keys: dvc-
+      # PAS de cache DVC ici (volontaire) : ce job entraîne contre SON
+      # registre MLflow frais. Avec un cache restauré, `dvc repro` trouverait
+      # tout à jour, skipperait `train`, aucun alias `challenger` ne serait
+      # créé et `make promote` échouerait (challenger introuvable).
       - name: Stack MLflow + entraînement + première promotion
         env:
           MLFLOW_TRACKING_URI: http://localhost:5000
