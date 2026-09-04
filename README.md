@@ -291,18 +291,3 @@ dérivé → alerte + colonnes en faute (`monthly_fee`, `tenure_months`,
    complète avant d'ouvrir la CI au client.
 9. Brancher les remotes de la matrice ci-dessus au rythme des besoins —
    chaque brique se change sans toucher aux autres.
-
-## État d'avancement
-
-- [x] **Étape 1** — squelette reproductible (uv 3.11, pre-commit, compose MLflow, Makefile)
-- [x] **Étape 2** — données versionnées DVC (dataset simulé, prepare/train, params.yaml)
-- [x] **Étape 3** — gate GE bloquante (suites en code, rapport HTML versionné, blocage testé)
-- [x] **Étape 4** — Feast local (feature view, materialize, chemin training équivalent)
-- [x] **Étape 5** — training loggé MLflow (params/metrics/artefacts, registre, alias challenger)
-- [x] **Étape 6** — tests modèle (seuils eval, invariance, comportement directionnel)
-- [x] **Étape 7** — Dagster (assets partagés avec DVC, job training_job idempotent)
-- [x] **Étape 8** — promotion challenger->prod (double gate, journal, rollback)
-- [x] **Étape 9** — CI (lint, unitaires, intégration DVC+GE+modèle, caches, résumé PR)
-- [x] **Étape 10** — serving FastAPI par alias, canary 90/10 nginx, smoke + rollback
-- [x] **Étape 11** — documentation finale (architecture, ADR, matrice, checklist)
-- [x] **BP3** — monitoring production : inference logging, drift Evidently, performance différée, Prometheus, retrain loop (Dagster sensor + CLI)
