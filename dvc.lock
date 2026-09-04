@@ -10,8 +10,8 @@ stages:
       nfiles: 1
     - path: src/config.py
       hash: md5
-      md5: c2e7807093db78afab9071946607fe8b
-      size: 1546
+      md5: d019bdf9cf787bbbe96133192d7d3467
+      size: 2781
     - path: src/data/prepare.py
       hash: md5
       md5: a71e5a1efcc333c3df0d83e4d854076d
@@ -41,13 +41,13 @@ stages:
       nfiles: 4
     - path: reports/data_docs
       hash: md5
-      md5: 2b137a3672485ad8bf4210a8a22ebba7.dir
-      size: 4755822
-      nfiles: 35
+      md5: 0eae40b0959647a66fc1d35253573ee0.dir
+      size: 5529840
+      nfiles: 50
     - path: src/config.py
       hash: md5
-      md5: c2e7807093db78afab9071946607fe8b
-      size: 1546
+      md5: d019bdf9cf787bbbe96133192d7d3467
+      size: 2781
     - path: src/training/train.py
       hash: md5
       md5: 025f60adb9fa5ade905f7ce38f225dab
@@ -80,7 +80,7 @@ stages:
       size: 154
     - path: models
       hash: md5
-      md5: 3addb527af0809347f83206846a4a0b8.dir
+      md5: 882b3e31a545954e5b0815c042ab2bee.dir
       size: 18633
       nfiles: 3
   validate:
@@ -98,8 +98,8 @@ stages:
       nfiles: 1
     - path: src/config.py
       hash: md5
-      md5: c2e7807093db78afab9071946607fe8b
-      size: 1546
+      md5: d019bdf9cf787bbbe96133192d7d3467
+      size: 2781
     - path: src/data/expectations.py
       hash: md5
       md5: c5276ab18ed3555006f78e611754af7c
@@ -130,6 +130,6 @@ stages:
     outs:
     - path: reports/data_docs
       hash: md5
-      md5: 2b137a3672485ad8bf4210a8a22ebba7.dir
-      size: 4755822
-      nfiles: 35
+      md5: 0eae40b0959647a66fc1d35253573ee0.dir
+      size: 5529840
+      nfiles: 50
