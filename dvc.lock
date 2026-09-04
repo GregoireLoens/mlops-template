@@ -41,9 +41,9 @@ stages:
       nfiles: 4
     - path: reports/data_docs
       hash: md5
-      md5: 0eae40b0959647a66fc1d35253573ee0.dir
-      size: 5529840
-      nfiles: 50
+      md5: d5ba18deddd0fdd03de7644c5617c615.dir
+      size: 6458662
+      nfiles: 68
     - path: src/config.py
       hash: md5
       md5: d019bdf9cf787bbbe96133192d7d3467
@@ -80,7 +80,7 @@ stages:
       size: 154
     - path: models
       hash: md5
-      md5: 882b3e31a545954e5b0815c042ab2bee.dir
+      md5: 4d7f8055c176f68d23dccbf23002a917.dir
       size: 18633
       nfiles: 3
   validate:
@@ -106,8 +106,8 @@ stages:
       size: 4375
     - path: src/data/validate.py
       hash: md5
-      md5: b3a092fd3d7c526835e3e6474a8950bb
-      size: 7280
+      md5: 6e9162b5baedc995d4fb00e7b8b4ae73
+      size: 10735
     params:
       params.yaml:
         data:
@@ -130,6 +130,6 @@ stages:
     outs:
     - path: reports/data_docs
       hash: md5
-      md5: 0eae40b0959647a66fc1d35253573ee0.dir
-      size: 5529840
-      nfiles: 50
+      md5: d5ba18deddd0fdd03de7644c5617c615.dir
+      size: 6458662
+      nfiles: 68

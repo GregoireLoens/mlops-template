@@ -9,8 +9,9 @@ Principe BP2 : une donnée douteuse n'atteint jamais le training. Le rapport
 est construit AVANT la levée d'exception, pour rester consultable sur un
 pipeline rouge.
 
-Le store `gx/` est commité (config) ; suites/assets/checkpoints y sont
-ré-enregistrés de façon idempotente à chaque run (add_or_update).
+Le store `gx/` est commité (config) ; suites/assets/definitions n'y sont
+ré-écrits qu'en cas de changement sémantique réel (hors UUID) : un
+`make repro` sans changement de code/params laisse `git status` clean.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ import logging
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -93,36 +95,120 @@ def _publish_data_docs(ctx: AbstractDataContext) -> Path:
     return next(dst.glob("**/index.html"))
 
 
-def _checkpoint_for(
-    ctx: AbstractDataContext, label: str, suite: gx.ExpectationSuite
-) -> gx.Checkpoint:
-    """Get-or-create idempotent : datasource -> asset -> batch def -> checkpoint."""
-    ds = ctx.data_sources.add_or_update_pandas(name=DATASOURCE)
-    _, asset_name = DATASETS[label]
-    asset = (
-        ds.get_asset(asset_name)
-        if asset_name in ds.get_asset_names()
-        else ds.add_dataframe_asset(asset_name)
-    )
-    try:
-        batch_def = asset.get_batch_definition(BATCH_DEFINITION)
-    except (KeyError, gx.exceptions.DataContextError):
-        batch_def = asset.add_batch_definition_whole_dataframe(BATCH_DEFINITION)
+def _sans_ids(obj: Any) -> Any:
+    """Contenu sémantique d'un objet GX sérialisé (sans les UUID volatils)."""
+    if isinstance(obj, dict):
+        return {k: _sans_ids(v) for k, v in obj.items() if k != "id"}
+    if isinstance(obj, list):
+        return [_sans_ids(v) for v in obj]
+    return obj
 
-    # add_or_update plutôt que get + mutation : les objets GX sont figés
-    # (pydantic), le store reste cohérent avec la définition en code.
-    vd = ctx.validation_definitions.add_or_update(
-        gx.ValidationDefinition(name=f"{label}_vd", data=batch_def, suite=suite)
-    )
+
+def _build_suite_offline(build_fn: Any, params: Params) -> gx.ExpectationSuite:
+    """Construit une suite SANS polluer le vrai store.
+
+    Avec un contexte actif et un nom déjà stocké, chaque `add_expectation`
+    persiste immédiatement dans `gx/` (doublons à chaque run). On construit
+    donc dans un contexte jetable (jamais lu), puis on restaure le projet
+    réel — le store commité n'est touché que sur changement réel (cf.
+    `_ensure_suite`).
+    """
+    scratch_gx = Path(tempfile.gettempdir()) / "mlops-gx-build" / "gx"
+    scratch_gx.mkdir(parents=True, exist_ok=True)
+    gx.get_context(mode="file", context_root_dir=str(scratch_gx))
+    try:
+        return build_fn(params)
+    finally:
+        gx.get_context(mode="file", context_root_dir=str(GX_DIR))
+
+
+def _ensure_suite(
+    ctx: AbstractDataContext, name: str, built: gx.ExpectationSuite
+) -> gx.ExpectationSuite:
+    """Suite stockée si identique, sinon sauvegarde (changement réel, une fois)."""
+    try:
+        stored = ctx.suites.get(name)
+    except Exception:
+        stored = None
+    if stored is not None and _sans_ids(stored.to_json_dict()) == _sans_ids(built.to_json_dict()):
+        return stored
+    return ctx.suites.add_or_update(built)
+
+
+def _ensure_datasource(ctx: AbstractDataContext) -> tuple[Any, bool]:
+    """Datasource + assets + batch definitions, créés seulement si absents.
+
+    Ne JAMAIS `add_or_update` une datasource existante : GX y réécrit tout
+    le mapping (nouveaux UUID, voire assets perdus) à chaque run.
+
+    Retourne (datasource, changed) : après un heal (changed=True), les objets
+    GX mis en cache par le contexte restent périmés — les définitions de
+    validation sont alors réécrites une fois (cf. `force`), puis le régime
+    nominal ne touche plus à rien.
+    """
+    changed = False
+    try:
+        ds: Any = ctx.data_sources.get(DATASOURCE)
+    except Exception:
+        ds = ctx.data_sources.add_pandas(DATASOURCE)
+        changed = True
+    for _label, (_suite_name, asset_name) in DATASETS.items():
+        if asset_name in ds.get_asset_names():
+            asset = ds.get_asset(asset_name)
+        else:
+            asset = ds.add_dataframe_asset(asset_name)
+            changed = True
+        try:
+            asset.get_batch_definition(BATCH_DEFINITION)
+        except (KeyError, gx.exceptions.DataContextError):
+            asset.add_batch_definition_whole_dataframe(BATCH_DEFINITION)
+            changed = True
+    return ds, changed
+
+
+def _ensure_validation_definition(
+    ctx: AbstractDataContext,
+    label: str,
+    batch_def: Any,
+    suite: gx.ExpectationSuite,
+    force: bool = False,
+) -> Any:
+    """ValidationDefinition existante si câblage identique, sinon (re)création."""
+    vd_name = f"{label}_vd"
+    candidate = gx.ValidationDefinition(name=vd_name, data=batch_def, suite=suite)
+    if not force:
+        try:
+            stored = ctx.validation_definitions.get(vd_name)
+        except Exception:
+            stored = None
+        if stored is not None and _sans_ids(stored.dict()) == _sans_ids(candidate.dict()):
+            return stored
+    return ctx.validation_definitions.add_or_update(candidate)
+
+
+def _checkpoint_for(
+    ctx: AbstractDataContext,
+    label: str,
+    batch_def: Any,
+    suite: gx.ExpectationSuite,
+    force_vd_update: bool = False,
+) -> gx.Checkpoint:
+    """Get-or-create idempotent : validation definition -> checkpoint."""
+    vd = _ensure_validation_definition(ctx, label, batch_def, suite, force=force_vd_update)
     return ctx.checkpoints.add_or_update(
         gx.Checkpoint(name=f"{label}_checkpoint", validation_definitions=[vd])
     )
 
 
 def _run_validation(
-    ctx: AbstractDataContext, label: str, df: pd.DataFrame, suite: gx.ExpectationSuite
+    ctx: AbstractDataContext,
+    label: str,
+    df: pd.DataFrame,
+    suite: gx.ExpectationSuite,
+    batch_def: Any,
+    force_vd_update: bool = False,
 ) -> gx.core.validation_definition.ValidationDefinitionResult:  # type: ignore[name-defined]
-    cp = _checkpoint_for(ctx, label, suite)
+    cp = _checkpoint_for(ctx, label, batch_def, suite, force_vd_update=force_vd_update)
     cp_result = cp.run(batch_parameters={"dataframe": df})
     return list(cp_result.run_results.values())[0]
 
@@ -148,8 +234,15 @@ def run(params: Params) -> None:
     """Valide les 3 datasets, publie le rapport HTML, lève si la gate est rouge."""
     ctx = get_context()
     suites = {
-        RAW_SUITE: ctx.suites.add_or_update(build_raw_suite(params)),
-        PREPARED_SUITE: ctx.suites.add_or_update(build_prepared_suite(params)),
+        RAW_SUITE: _ensure_suite(ctx, RAW_SUITE, _build_suite_offline(build_raw_suite, params)),
+        PREPARED_SUITE: _ensure_suite(
+            ctx, PREPARED_SUITE, _build_suite_offline(build_prepared_suite, params)
+        ),
+    }
+    ds, ds_changed = _ensure_datasource(ctx)
+    batch_defs = {
+        label: ds.get_asset(asset_name).get_batch_definition(BATCH_DEFINITION)
+        for label, (_suite_name, asset_name) in DATASETS.items()
     }
 
     frames = {
@@ -163,7 +256,9 @@ def run(params: Params) -> None:
     failures: list[str] = []
     for label, df in frames.items():
         suite_name, _ = DATASETS[label]
-        result = _run_validation(ctx, label, df, suites[suite_name])
+        result = _run_validation(
+            ctx, label, df, suites[suite_name], batch_defs[label], force_vd_update=ds_changed
+        )
         if result.success:
             print(f"validate OK — {label} ({len(df)} lignes)")
         else:
