@@ -63,7 +63,6 @@ def observe_request(
     REQUESTS_TOTAL.labels(method, path, str(status), version).inc()
     if path == "/predict":
         INFERENCE_LATENCY.labels(version).observe(latency)
-    if path == "/predict":
         _TOTAL += 1
         if status >= 500:
             _ERRORS += 1

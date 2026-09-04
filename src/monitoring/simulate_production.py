@@ -41,7 +41,6 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 from src.data.generate_raw import generate
-from src.serving.smoke import PAYLOAD
 
 Mode = str
 
@@ -135,7 +134,7 @@ def _post_predict(url: str, payload: dict) -> tuple[bool, float, str | None]:
         return False, 0.0, None
 
 
-def _row_payload(i: int, row: pd.Series) -> dict:
+def _row_payload(row: pd.Series) -> dict:
     base = {k: row[k] for k in FEATURE_COLS}
     base["age"] = int(base["age"])
     base["tenure_months"] = float(base["tenure_months"])
@@ -144,7 +143,6 @@ def _row_payload(i: int, row: pd.Series) -> dict:
     base["has_premium"] = int(base["has_premium"])
     base["contract_type"] = str(base["contract_type"])
     base["signup_channel"] = str(base["signup_channel"])
-    _ = (i, PAYLOAD)  # garde-fou : le payload reste compatible avec le smoke-test
     return base
 
 
@@ -160,8 +158,8 @@ def run_traffic(
     df = build_frame(mode, n, seed)
     ok, errors, probas = 0, 0, []
     prediction_ids: list[str | None] = []
-    for i, (_, row) in enumerate(df.iterrows()):
-        success, proba, pid = _post_predict(url, _row_payload(i, row))
+    for _, row in df.iterrows():
+        success, proba, pid = _post_predict(url, _row_payload(row))
         prediction_ids.append(pid)
         if success:
             ok += 1

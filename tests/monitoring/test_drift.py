@@ -191,3 +191,41 @@ def test_write_ground_truth_ids_reels(tmp_path) -> None:  # type: ignore[no-unty
     assert list(saved.columns) == ["prediction_id", "churn_true"]
     # La requête en échec (None) est exclue : 4 lignes, IDs réels préservés.
     assert saved["prediction_id"].tolist() == ["uuid-a", "uuid-b", "uuid-d", "uuid-e"]
+
+
+def test_row_payload_sans_scorie() -> None:
+    """Correctif 5 : `_row_payload` sans garde-fou PAYLOAD (signature 1 arg)."""
+    import inspect
+
+    import src.monitoring.simulate_production as sim
+
+    # L'import mort `PAYLOAD` a disparu du module.
+    assert not hasattr(sim, "PAYLOAD")
+    assert "PAYLOAD" not in dir(sim)
+    # Signature resserrée : une seule ligne, pas d'index factice.
+    assert list(inspect.signature(sim._row_payload).parameters) == ["row"]
+    df = build_frame("nominal", 3, seed=0)
+    payload = sim._row_payload(df.iloc[0])
+    assert set(payload) == set(sim.FEATURE_COLS)
+    assert isinstance(payload["age"], int)
+
+
+def test_observe_request_branche_unique() -> None:
+    """Correctif 5 : `observe_request` fusionné — latence + erreurs en un seul `if`."""
+    import inspect
+
+    from src.serving import metrics as m
+
+    src = inspect.getsource(m.observe_request)
+    # Une seule branche /predict (l'ancienne duplication est supprimée).
+    assert src.count('if path == "/predict"') == 1
+    # Comportement inchangé : /predict alimente latence + taux d'erreur,
+    # les autres routes ne touchent pas au taux.
+    m._TOTAL = 0
+    m._ERRORS = 0
+    m.observe_request("POST", "/predict", 200, "v1", 0.01)
+    m.observe_request("POST", "/predict", 500, "v1", 0.02)
+    assert m._TOTAL == 2
+    assert m._ERRORS == 1
+    m.observe_request("GET", "/health", 200, "v1", 0.0)
+    assert m._TOTAL == 2  # /health ignoré par la branche /predict
