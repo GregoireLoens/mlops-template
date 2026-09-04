@@ -81,7 +81,7 @@ jobs:
             echo '```json'
             cat metrics.json
             echo '```'
-            echo "**Gate Great Expectations** : bloquante (rapport versionné sous \`reports/data_docs\`)"
+            echo "**Gate Great Expectations** : bloquante (rapport diagnostique sous \`reports/data_docs\`)"
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Rapport GE en artefact (diagnostic)
         if: failure()

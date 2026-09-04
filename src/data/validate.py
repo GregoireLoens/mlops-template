@@ -2,12 +2,18 @@
 
 Valide raw, train, test contre leurs suites ; échoue avec un message clair
 (liste des expectations violées) si une donnée est douteuse. Le rapport
-HTML (data docs) est publié dans reports/data_docs — un OUT DVC, donc
-versionné via dvc.lock et reproductible par run.
+HTML (data docs) est publié dans reports/data_docs — diagnostic local,
+régénéré à chaque run (non versionné, cf. ADR-012).
 
 Principe BP2 : une donnée douteuse n'atteint jamais le training. Le rapport
 est construit AVANT la levée d'exception, pour rester consultable sur un
 pipeline rouge.
+
+Le rapport HTML (`reports/data_docs`) est un artefact diagnostique LOCAL,
+régénéré à chaque run : Great Expectations y écrit des chemins horodatés,
+il ne peut pas être un out DVC déterministe (cf. ADR-012). La gate reste
+structurelle via la sentinelle `reports/validate.ok` (out DVC déterministe,
+dép de `train`) : elle n'est écrite que si la gate est verte.
 
 Le store `gx/` est commité (config) ; suites/assets/definitions n'y sont
 ré-écrits qu'en cas de changement sémantique réel (hors UUID) : un
@@ -38,6 +44,11 @@ from src.data.prepare import read_raw
 
 GX_DIR = PROJECT_ROOT / "gx"
 REPORTS_DIR = PROJECT_ROOT / "reports"
+# Nom de la sentinelle de gate verte (résolu via REPORTS_DIR à l'exécution —
+# les tests redirigent REPORTS_DIR vers tmp_path, comme pour GX_DIR).
+# Seul out DVC de `validate` (dép de `train`), contenu déterministe
+# (volumes validés) — byte-identique à données égales.
+SENTINEL_NAME = "validate.ok"
 
 DATASOURCE = "local_pandas"
 BATCH_DEFINITION = "whole"
@@ -79,11 +90,13 @@ def _ensure_progress_bars_off(conf: Path) -> None:
 
 
 def _publish_data_docs(ctx: AbstractDataContext) -> Path:
-    """Publie le site data docs dans reports/data_docs — artefact du pipeline.
+    """Publie le site data docs dans reports/data_docs — diagnostic local.
 
     Le site canonique de GX vit dans gx/uncommitted/ (détail interne, variable
-    selon les versions). On en publie une copie stable dans reports/, un OUT
-    DVC : le rapport HTML est versionné via dvc.lock et remonte en PR.
+    selon les versions). On en publie une copie stable dans reports/ pour
+    lecture humaine et artefact CI. NON versionné (chemins horodatés par GE,
+    cf. ADR-012) : `reports/` est nettoyé puis recopié à chaque run, le
+    contenu reste borné au run courant.
     """
     ctx.build_data_docs()
     dst = REPORTS_DIR / "data_docs"
@@ -264,12 +277,19 @@ def run(params: Params) -> None:
         else:
             failures.append(_failure_message(label, result))
 
-    # Rapport HTML versionné (out DVC reports/) — généré même en échec.
+    # Rapport HTML diagnostique (même en échec, voir ci-dessus).
     report = _publish_data_docs(ctx)
     print(f"rapport GE : {report}")
 
     if failures:
         raise DataValidationError("\n".join(failures))
+
+    # Gate verte : sentinelle déterministe pour le DAG DVC (dép de `train`).
+    # Écrite UNIQUEMENT en succès — jamais sur gate rouge.
+    (REPORTS_DIR / SENTINEL_NAME).write_text(
+        "validate OK — " + ", ".join(f"{label}={len(df)}" for label, df in frames.items()) + "\n",
+        encoding="utf-8",
+    )
 
 
 def main() -> None:

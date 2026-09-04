@@ -7,7 +7,7 @@ métriques, quels seuils de gate.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import hashlib
 from typing import Any
 
 import matplotlib
@@ -41,15 +41,19 @@ def plot_confusion_matrix(model: Pipeline, test_df: pd.DataFrame, params: Params
 def build_model_card(
     params: Params, metrics: dict[str, float | str], hyperparams: dict[str, Any]
 ) -> str:
-    now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
-    raw = pd.read_csv(PROJECT_ROOT / params.data.raw_path, usecols=["signup_ts"])
+    # Pas de timestamp mur-horloge : le card est un out DVC (models/) et doit
+    # être byte-identique à données/code égaux. Provenance via le hash court
+    # du dataset brut (déterministe) + la fenêtre temporelle ci-dessous.
+    raw_path = PROJECT_ROOT / params.data.raw_path
+    digest = hashlib.md5(raw_path.read_bytes()).hexdigest()[:8]
+    raw = pd.read_csv(raw_path, usecols=["signup_ts"])
     gate = (
         f"accuracy>={params.eval.min_accuracy}, f1>={params.eval.min_f1}, "
         f"roc_auc>={params.eval.min_roc_auc}"
     )
     return f"""# Model card — {params.train.model_name}
 
-Générée automatiquement par l'étape `train` ({now}).
+Générée automatiquement par l'étape `train` (dataset `{digest}`).
 
 | Champ | Valeur |
 | --- | --- |

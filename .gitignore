@@ -23,6 +23,8 @@ data/*
 !data/*.dvc
 !data/README.md
 /reports/data_docs
+# Sentinelle de gate GE (out DVC déterministe, cf. ADR-012).
+/reports/validate.ok
 # BP3 : logs d'inférence locaux + rapports de drift (artefacts régénérables).
 /data/inferences
 /reports/monitoring

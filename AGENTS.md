@@ -60,7 +60,7 @@ Notes :
    si champ manquant), jamais en dur.
 3. **Ne jamais committer** : `.venv/`, `.env`, contenu de `data/*`, `mlruns/`,
    `/models`, **`mlflow.db`**, **`.tmp_dagster_home*/`**, `/reports/data_docs`,
-   `/data/inferences`, `/reports/monitoring`. **Committer** : `*.dvc`,
+   `/reports/validate.ok`, `/data/inferences`, `/reports/monitoring`. **Committer** : `*.dvc`,
    `dvc.lock`, `metrics.json` (out DVC `cache: false`), `reports/promotions.md`
    (journal append-only), `uv.lock`.
 4. Les homes Dagster `.tmp_dagster_home_<suffixe-aléatoire>/` changent à chaque
@@ -89,11 +89,13 @@ Notes :
 ## 5. Données — DVC / Great Expectations / Feast
 
 - `dvc.yaml` : `prepare` → `validate` → `train`. `train` dépend de
-  `reports/data_docs` (out de `validate`) : **l'ordre gate → training est
-  structurel**, ne pas le contourner.
+  `reports/validate.ok` (sentinelle de gate verte, out de `validate`) :
+  **l'ordre gate → training est structurel**, ne pas le contourner. Le rapport
+  HTML `reports/data_docs/` est diagnostique, régénéré à chaque run, non
+  versionné (GE horodate ses chemins — cf. ADR-012).
 - Suites GE **en code** (`src/data/expectations.py`), revues en PR. Le store
-  `gx/` est un cache auto-réparé (pas de dep DVC dessus) ; le rapport HTML
-  `reports/data_docs/` est versionné via `dvc.lock`, même gate rouge.
+  `gx/` est un cache auto-réparé (pas de dep DVC dessus) ; les sauvegardes
+  sont idempotentes (écriture seulement sur changement sémantique hors UUID).
 - `make repro` sans changement est idempotent (`up to date`). Changer
   `train.logreg.C` ne relance que `train` (repro sélectif par section params).
 - Test de blocage / recovery :

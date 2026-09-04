@@ -19,7 +19,7 @@ flowchart LR
         RAW["data/raw.dvc<br/>générateur déterministe"]
         PREP["prepare<br/>split stratifié"]
         GE{"gate GE<br/>validate"}
-        DOCS["reports/data_docs<br/>rapport HTML versionné"]
+        DOCS["reports/data_docs<br/>rapport HTML diagnostique"]
     end
     subgraph features["Features"]
         FV["Feast customer_profile<br/>feature view en code"]
@@ -137,12 +137,13 @@ Le contenu de `data/` vit dans le cache DVC ; git ne suit que les pointeurs
 
 `make repro` enchaîne prepare -> **validate** -> train. Le train ne s'exécute
 que si la validation passe : le DAG DVC rend l'ordre structurel (`train` dépend
-de `reports/data_docs`, l'out de `validate`).
+de `reports/validate.ok`, la sentinelle de gate verte produite par `validate`).
 
 - Suites définies **en code** (`src/data/expectations.py`) : schéma exact, plages,
   ensembles, distribution clé (taux de churn) — revues en PR comme du code.
-- Rapport HTML **versionné** : `reports/data_docs/` est un out DVC (tracé dans
-  `dvc.lock`), publié même quand la gate est rouge.
+- Rapport HTML **diagnostique** : `reports/data_docs/` est régénéré à chaque run
+  (non versionné — GE horodate ses chemins, cf. ADR-012), publié même quand
+  la gate est rouge.
 - Test de blocage (à refaire chez un client) :
 
   ```bash

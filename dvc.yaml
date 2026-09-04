@@ -13,8 +13,10 @@ stages:
       - data/prepared
 
   # Gate BP2 : les données douteuses n'atteignent jamais le training.
-  # train dépend de `reports` (out de validate) -> l'ordre validate -> train
-  # est garanti par le DAG DVC, pas par une convention.
+  # train dépend de la sentinelle (out de validate) -> l'ordre validate ->
+  # train est garanti par le DAG DVC, pas par une convention. Le rapport HTML
+  # (reports/data_docs, horodaté par GE) n'est PAS un out : il ne peut pas
+  # être déterministe (cf. ADR-012) — diagnostic local + artefact CI.
   validate:
     cmd: python -m src.data.validate
     deps:
@@ -29,13 +31,13 @@ stages:
       - data
       - features
     outs:
-      - reports/data_docs # rapport HTML (data docs), versionné via dvc.lock
+      - reports/validate.ok # sentinelle de gate verte (déterministe)
 
   train:
     cmd: python -m src.training.train
     deps:
       - data/prepared
-      - reports/data_docs # gate : train ne tourne que si validate a produit son rapport
+      - reports/validate.ok # gate : train ne tourne que si validate a produit sa sentinelle
       - src/training/train.py
       - src/config.py
     params:

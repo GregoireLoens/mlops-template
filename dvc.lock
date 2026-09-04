@@ -39,11 +39,10 @@ stages:
       md5: ec12b5c1b9b8446d3ae3aafc6f6d1406.dir
       size: 745033
       nfiles: 4
-    - path: reports/data_docs
+    - path: reports/validate.ok
       hash: md5
-      md5: d5ba18deddd0fdd03de7644c5617c615.dir
-      size: 6458662
-      nfiles: 68
+      md5: cdb63f6063cd44074948faa95c74f1ea
+      size: 49
     - path: src/config.py
       hash: md5
       md5: d019bdf9cf787bbbe96133192d7d3467
@@ -80,8 +79,8 @@ stages:
       size: 154
     - path: models
       hash: md5
-      md5: 4d7f8055c176f68d23dccbf23002a917.dir
-      size: 18633
+      md5: cf25d7d9208c708ae71f84cc875c384d.dir
+      size: 18631
       nfiles: 3
   validate:
     cmd: python -m src.data.validate
@@ -106,8 +105,8 @@ stages:
       size: 4375
     - path: src/data/validate.py
       hash: md5
-      md5: 6e9162b5baedc995d4fb00e7b8b4ae73
-      size: 10735
+      md5: 302f4676e3d4a24dfee12046a100218f
+      size: 11854
     params:
       params.yaml:
         data:
@@ -128,8 +127,7 @@ stages:
           - contract_type
           - signup_channel
     outs:
-    - path: reports/data_docs
+    - path: reports/validate.ok
       hash: md5
-      md5: d5ba18deddd0fdd03de7644c5617c615.dir
-      size: 6458662
-      nfiles: 68
+      md5: cdb63f6063cd44074948faa95c74f1ea
+      size: 49

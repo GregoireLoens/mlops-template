@@ -86,3 +86,7 @@ reste rapide et portable, le coût docker n'est payé que quand on déploie.
 ## ADR-011 : Monitoring & Drift
 
 Monitoring production via Evidently + tests KS/Chi-2 maison, inférences JSONL jointes par `prediction_id`, réentraînement si drift OU performance dégradée (avec volume + cooldown).
+
+## ADR-012 : Outs DVC déterministes
+
+`model_card.md` sans horloge (hash dataset à la place) ; `reports/data_docs` sorti des outs DVC (horodatage GE impossible à figer) au profit de la sentinelle `reports/validate.ok` en dépendance de `train` — `make repro` sans changement est idempotent, la gate GE reste bloquante.
