@@ -39,12 +39,17 @@ stages:
       - data/prepared
       - reports/validate.ok # gate : train ne tourne que si validate a produit sa sentinelle
       - src/training/train.py
+      - src/training/reporting.py
       - src/config.py
     params:
       - train
       - features
+    # Outs FICHIERS (pas le dossier) : confusion_matrix.png est un diagnostic
+    # dont le rendu dépend des polices système (cf. ADR-013) — il reste généré
+    # localement + loggé MLflow, mais hors versionnement DVC.
     outs:
-      - models # dir : model.pkl + model_card.md (tout le contenu est tracé)
+      - models/model.pkl
+      - models/model_card.md
     metrics:
       - metrics.json:
           cache: false # petit fichier commité : `dvc metrics diff` en PR

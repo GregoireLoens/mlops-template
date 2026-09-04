@@ -47,6 +47,10 @@ stages:
       hash: md5
       md5: d019bdf9cf787bbbe96133192d7d3467
       size: 2781
+    - path: src/training/reporting.py
+      hash: md5
+      md5: 8ea9bc2f1752ff707f7538dbc23c8cc5
+      size: 2914
     - path: src/training/train.py
       hash: md5
       md5: 025f60adb9fa5ade905f7ce38f225dab
@@ -77,11 +81,14 @@ stages:
       hash: md5
       md5: 30dc5e156d57489fe3a6bd754a3bfe99
       size: 154
-    - path: models
+    - path: models/model.pkl
       hash: md5
-      md5: cf25d7d9208c708ae71f84cc875c384d.dir
-      size: 18631
-      nfiles: 3
+      md5: 29ce92da37eb7b09e9a600dcf8b45fd4
+      size: 3777
+    - path: models/model_card.md
+      hash: md5
+      md5: 76442faad080f51571a4bdda53712087
+      size: 1107
   validate:
     cmd: python -m src.data.validate
     deps:

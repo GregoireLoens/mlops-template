@@ -90,3 +90,7 @@ Monitoring production via Evidently + tests KS/Chi-2 maison, inférences JSONL j
 ## ADR-012 : Outs DVC déterministes
 
 `model_card.md` sans horloge (hash dataset à la place) ; `reports/data_docs` sorti des outs DVC (horodatage GE impossible à figer) au profit de la sentinelle `reports/validate.ok` en dépendance de `train` — `make repro` sans changement est idempotent, la gate GE reste bloquante.
+
+## ADR-013 : Confusion matrix hors outs DVC
+
+`confusion_matrix.png` dépend des polices système (rendu matplotlib non portable) : `train` versionne `models/model.pkl` + `models/model_card.md` au lieu du dossier `models`. Le PNG reste généré + loggé MLflow (diagnostic humain, rien ne le consomme en aval).
