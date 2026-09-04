@@ -112,9 +112,28 @@ def test_colonnes_manquantes_ignorees(reference: pd.DataFrame, params) -> None: 
 
 
 def test_prediction_drift_calcule(reference: pd.DataFrame, params) -> None:  # type: ignore[no-untyped-def]
-    cur = _with_proba(generate(600, seed=9), 0.95)
-    summary = dd.build_summary(reference, cur, params)
-    assert 0.0 <= summary.prediction_pvalue <= 1.0
+    """Correctif 4 : écart de moyenne au lieu du KS continu-vs-binaire.
+
+    Comparer churn_probability (continue) à une cible binaire bruitée via KS
+    n'est pas sain (masse en deux points vs distribution continue). Choix :
+    écart absolu des moyennes, sans hypothèse distributionnelle (PSI écarté :
+    pas de distribution de référence des probas + binning fragile). Le nominal
+    (proba 0.30 vs taux ~0.28) reste sous le seuil, une dérive réelle (proba
+    0.95) le franchit — échoue si la détection est cassée (toujours True/False).
+    """
+    cur_nominal = _with_proba(generate(600, seed=9), 0.30)
+    summary_nominal = dd.build_summary(reference, cur_nominal, params)
+    assert summary_nominal.prediction_drift is False
+    assert 0.0 <= summary_nominal.prediction_pvalue <= 1.0
+
+    cur_shifted = _with_proba(generate(600, seed=9), 0.95)
+    summary_shifted = dd.build_summary(reference, cur_shifted, params)
+    assert summary_shifted.prediction_drift is True
+    assert summary_shifted.prediction_pvalue > 0.10
+    assert 0.0 <= summary_shifted.prediction_pvalue <= 1.0
+    # Traçabilité de la méthode (le champ pvalue porte le gap, cf. compute_drifts).
+    methods = {c["column"]: c["method"] for c in summary_shifted.columns}
+    assert methods.get("churn_probability") == "mean_gap"
 
 
 def test_simulateur_modes_deterministes() -> None:

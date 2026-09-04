@@ -6,9 +6,10 @@ d'entraînement DVC (référence, `data/prepared/train.csv`) :
 - **Data drift** : Evidently `DataDriftPreset` (KS pour continues, Chi-2 /
   Z-test pour catégorielles, seuil p-value paramétrable). Le verdict global
   suit la règle `share_of_drifted_columns > share_threshold` (défaut 0.3).
-- **Prediction drift** : même test sur `churn_probability` (courant) vs
-  taux de la cible d'entraînement — une dérive de la sortie sans dérive
-  d'entrée est le signal d'un concept drift naissant.
+- **Prediction drift** : écart absolu de moyenne |mean(churn_probability
+  courant) - mean(cible entraînement)| > 0.10 — une dérive de la sortie sans
+  dérive d'entrée est le signal d'un concept drift naissant (le KS
+  continu-vs-binaire est volontairement écarté, cf. `compute_drifts`).
 - **Performance différée** : si un CSV de vérité terrain (`prediction_id`,
   `churn_true`) est fourni, jointure réelle sur `prediction_id` (left join
   de la vérité sur les inférences) puis accuracy/F1/ROC-AUC courantes vs
@@ -200,20 +201,27 @@ def compute_drifts(
         )
     pred_drift: ColumnDrift | None = None
     if PREDICTION_COL in current.columns and params.data.target in reference.columns:
-        # Prédiction continue vs taux cible binaire : on compare les moyennes
-        # via KS sur (proba courante) vs (cible référence jitterisée).
-        import numpy as np
-
-        rng = np.random.default_rng(0)
-        ref_target = reference[params.data.target].to_numpy(dtype=float)
-        ref_jitter = ref_target + rng.normal(0, 1e-3, len(ref_target))
-        cur_proba = current[PREDICTION_COL].dropna()
-        pvalue = _ks_pvalue(pd.Series(ref_jitter), cur_proba)
+        # Correctif 4 revue BP3 : écart de moyenne au lieu du KS continu-vs-binaire.
+        # L'ancien code comparait churn_probability (continue) à la cible binaire
+        # bruitée N(0, 1e-3) via KS — comparer une distribution continue à une
+        # masse en deux points n'est pas un test sain (p-value artificiellement
+        # basse, sensible au jitter, non interprétable). Choix : écart absolu
+        # |mean(proba courante) - mean(cible référence)| — sans hypothèse
+        # distributionnelle, robuste sur petites fenêtres, interprétable
+        # (un modèle calibré a un écart ~0 en nominal). PSI écarté : il exige
+        # une distribution de référence des probas (absente — seule la cible
+        # binaire existe) + binning fragile. Seuil 0.10 : le nominal (0.30 vs
+        # ~0.28 => gap ~0.02) reste vert, une dérive réelle (0.95 vs ~0.28 =>
+        # gap ~0.67) lève l'alerte. Le champ `pvalue` porte ici le gap [0, 1]
+        # (compat JSON, toujours dans [0, 1]) avec `method="mean_gap"`.
+        ref_mean = float(reference[params.data.target].mean())
+        cur_mean = float(current[PREDICTION_COL].mean())
+        gap = abs(cur_mean - ref_mean)
         pred_drift = ColumnDrift(
             column=PREDICTION_COL,
-            drifted=bool(pvalue < threshold),
-            pvalue=pvalue,
-            method="ks",
+            drifted=bool(gap > 0.10),
+            pvalue=float(gap),
+            method="mean_gap",
         )
     return columns, pred_drift
 
