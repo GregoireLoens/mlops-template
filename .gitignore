@@ -30,3 +30,7 @@ data/*
 # MLflow local (sans serveur)
 mlruns/
 /models
+mlflow.db
+
+# Dagster local : homes temporaires régénérables à chaque exécution
+.tmp_dagster_home*/
