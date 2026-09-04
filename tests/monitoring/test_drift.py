@@ -50,21 +50,53 @@ def test_data_drift_alerte_et_colonnes(reference: pd.DataFrame, params) -> None:
         assert col in summary.drifted_columns
 
 
-def test_concept_drift_features_stables(reference: pd.DataFrame, params) -> None:  # type: ignore[no-untyped-def]
-    # Features stables : le data drift reste sous le seuil (même seed nominal)...
-    # Note : le simulateur n'envoie que des catégories connues du train
-    # (`referral`, pas `partner`) pour ne pas créer un faux drift catégoriel.
+def test_concept_drift_features_stables(  # type: ignore[no-untyped-def]
+    reference: pd.DataFrame, params, tmp_path
+) -> None:
+    """Correctif 3 : une vérité dégradée fait passer `degraded` à True.
+
+    Inférences nominales (features stables => pas de data drift) avec un
+    prédicteur parfait pour la loi nominale, puis vérité retardée
+    volontairement dégradée (labels inversés = concept drift extrême où la
+    relation features->cible s'inverse). `evaluate_performance` doit signaler
+    `degraded=True` avec une accuracy sous le seuil — le test échoue si la
+    logique de détection est cassée (toujours False). Le contrôle nominal
+    (non dégradé) garantit l'inverse (échoue si toujours True).
+    Note : le générateur `concept-drift` réel ne suffit pas ici (80 %
+    d'accord avec le nominal, AUC 0.77 > seuil) — l'inversion simule le
+    changement de régime sévère que le détecteur doit impérativement voir.
+    """
     from src.data.generate_raw import generate as _gen
 
-    raw = _gen(2000, seed=42)
-    cur = _with_proba(raw, 0.3)
+    raw = _gen(600, seed=42)
+    y_nominal = ground_truth(raw, "nominal", seed=42)
+    # Prédicteur parfait pour le régime nominal (0.9 si churn, 0.1 sinon).
+    cur = raw.copy()
+    cur["churn_probability"] = np.where(y_nominal.to_numpy() == 1, 0.9, 0.1)
+    cur["prediction_id"] = [f"test-{i:05d}" for i in range(len(cur))]
     summary = dd.build_summary(reference, cur, params)
     assert summary.dataset_drift is False
-    # ...mais la vérité retardée révèle la dégradation dès qu'elle arrive.
-    gt = ground_truth(cur.drop(columns=["churn_probability"]), "concept-drift", seed=42)
-    # Le shift de cible confirme le changement de régime (toujours vrai par
-    # construction : le logit concept-drift diffère du logit nominal).
-    assert gt.mean() >= 0.0
+    # Contrôle : vérité nominale => pas dégradé.
+    gt_nom_path = tmp_path / "gt_nominal.csv"
+    with open(gt_nom_path, "w", encoding="utf-8") as f:
+        f.write("prediction_id,churn_true\n")
+        for pid, y in zip(cur["prediction_id"], y_nominal, strict=True):
+            f.write(f"{pid},{int(y)}\n")
+    res_nom = dd.evaluate_performance(cur, str(gt_nom_path), params)
+    assert res_nom["evaluated"] is True
+    assert res_nom["degraded"] is False
+    # Vérité dégradée (concept drift) => dégradé, accuracy sous le seuil.
+    gt_deg_path = tmp_path / "gt_degraded.csv"
+    with open(gt_deg_path, "w", encoding="utf-8") as f:
+        f.write("prediction_id,churn_true\n")
+        for pid, y in zip(cur["prediction_id"], 1 - y_nominal.to_numpy(), strict=True):
+            f.write(f"{pid},{int(y)}\n")
+    res_deg = dd.evaluate_performance(cur, str(gt_deg_path), params)
+    assert res_deg["evaluated"] is True
+    assert res_deg["join"] == "prediction_id"
+    assert res_deg["degraded"] is True
+    assert res_deg["accuracy"] < params.monitoring.performance.min_accuracy
+    assert res_deg["roc_auc"] < params.monitoring.performance.min_roc_auc
 
 
 def test_fenetre_trop_petite_avertit(reference: pd.DataFrame, params) -> None:  # type: ignore[no-untyped-def]
