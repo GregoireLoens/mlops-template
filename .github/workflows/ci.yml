@@ -65,11 +65,12 @@ jobs:
       - name: Environnement projet
         run: uv sync --extra dev
       - name: Dataset simulé (déterministe — hash = dvc.lock)
-        run: |
-          .venv/bin/python -m src.data.generate_raw
-          .venv/bin/dvc add data/raw
+        # Via make : le Makefile met .venv/bin en tête de PATH, donc le
+        # `python` nu de dvc.yaml résout la venv (sans ça, dvc repro appelle
+        # le python système et échoue avec ModuleNotFoundError).
+        run: make data
       - name: Pipeline DVC (prepare -> gate GE -> train + registre MLflow)
-        run: .venv/bin/dvc repro
+        run: make repro
       - name: Tests modèle sur le challenger (seuils + invariance + comportement)
         run: .venv/bin/pytest tests/model -q
       - name: Résumé dans la PR

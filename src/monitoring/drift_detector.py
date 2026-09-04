@@ -132,6 +132,11 @@ def _ks_pvalue(ref: pd.Series, cur: pd.Series) -> float:
     cdf_a = np.searchsorted(a, grid, side="right") / len(a)
     cdf_b = np.searchsorted(b, grid, side="right") / len(b)
     d = float(np.max(np.abs(cdf_a - cdf_b)))
+    if d <= 0.0:
+        # Fenêtres identiques : aucune évidence de drift. Sans ce garde-fou,
+        # la série alternée ci-dessous tronquée à un nombre pair de termes
+        # renvoie 0.0 (deux distributions égales signalées "driftées").
+        return 1.0
     n_eff = len(a) * len(b) / (len(a) + len(b))
     lam = (np.sqrt(n_eff) + 0.12 + 0.11 / np.sqrt(n_eff)) * d
     # Série de Kolmogorov (Marsaglia) : P(D > d) sous H0.

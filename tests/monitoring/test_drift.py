@@ -14,6 +14,7 @@ import pandas as pd
 import pytest
 from src.config import load_params
 from src.data.generate_raw import generate
+from src.data.prepare import split
 from src.monitoring import drift_detector as dd
 from src.monitoring.simulate_production import build_frame, ground_truth
 
@@ -24,8 +25,28 @@ def params():  # type: ignore[no-untyped-def]
 
 
 @pytest.fixture(scope="module")
-def reference(params):  # type: ignore[no-untyped-def]
-    return pd.read_csv(f"data/prepared/{'train.csv'}")
+def reference():  # type: ignore[no-untyped-def]
+    # Baseline en mémoire construite comme le pipeline DVC (génération seed
+    # 42 + split stratifié) : même loi et même taille que
+    # data/prepared/train.csv, sans lecture du repo — le test passe sur
+    # clone frais sans `make repro`.
+    params = load_params()
+    raw = generate(10_000, seed=42)
+    train_df, _ = split(raw, params.data.target, params.data.test_size, params.data.seed)
+    return train_df
+
+
+def test_fenetres_identiques_pas_de_drift(reference: pd.DataFrame, params) -> None:  # type: ignore[no-untyped-def]
+    """Garde-fou `_ks_pvalue` : D=0 (distributions égales) => p-value 1.0.
+
+    Sans garde-fou, la série de Kolmogorov alternée tronquée à un nombre
+    pair de termes renvoie 0.0 — deux fenêtres identiques seraient
+    signalées "driftées".
+    """
+    cur = _with_proba(reference.copy(), 0.3)
+    summary = dd.build_summary(reference, cur, params)
+    assert summary.dataset_drift is False
+    assert dd._ks_pvalue(reference["has_premium"], cur["has_premium"]) == 1.0
 
 
 def _with_proba(df: pd.DataFrame, value: float) -> pd.DataFrame:
