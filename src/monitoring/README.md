@@ -13,4 +13,6 @@
   `make retrain-if-drifted` (déclenche le training DVC — cron/CI).
 
 Fenêtre d'inférences : logs JSONL (`data/inferences/`, via `/predict`) ou
-CSV explicite (`--current`). Vérité retardée : CSV (`row_id`, `churn_true`).
+CSV explicite (`--current`). Vérité retardée : CSV (`prediction_id`,
+`churn_true`) joint par `prediction_id` aux inférences (Option A revue BP3 ;
+repli positionnel uniquement pour les CSV legacy sans IDs).

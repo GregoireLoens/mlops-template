@@ -103,3 +103,40 @@ def test_ground_truth_format() -> None:
     assert len(gt) == 50
     assert gt.name == "churn_true"
     assert not np.isnan(gt.to_numpy(dtype=float)).any()
+
+
+def test_evaluate_performance_jointure_prediction_id(params, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """Correctif 2 (Option A) : la jointure sur prediction_id survit au mélange.
+
+    Fenêtre courante ordonnée (10x proba 0.1 puis 10x 0.9) face à une vérité
+    mélangée (ordre inverse) : l'ancien alignement positionnel donnerait
+    accuracy 0.0, la jointure exacte donne 1.0. Échoue si evaluate_performance
+    réaligne par position.
+    """
+    ids = [f"pid-{i:03d}" for i in range(20)]
+    probas = [0.1] * 10 + [0.9] * 10
+    cur = pd.DataFrame({"churn_probability": probas, "prediction_id": ids})
+    gt_path = tmp_path / "gt.csv"
+    with open(gt_path, "w", encoding="utf-8") as f:
+        f.write("prediction_id,churn_true\n")
+        for i in reversed(range(20)):
+            f.write(f"{ids[i]},{0 if i < 10 else 1}\n")
+    res = dd.evaluate_performance(cur, str(gt_path), params)
+    assert res["evaluated"] is True
+    assert res["join"] == "prediction_id"
+    assert res["n"] == 20
+    assert res["accuracy"] == 1.0
+
+
+def test_write_ground_truth_ids_reels(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """Correctif 2 (Option A) : le simulateur écrit les IDs réellement servis."""
+    from src.monitoring.simulate_production import write_ground_truth
+
+    df = build_frame("nominal", 5, seed=3)
+    pids: list[str | None] = ["uuid-a", "uuid-b", None, "uuid-d", "uuid-e"]
+    out = tmp_path / "gt.csv"
+    write_ground_truth(str(out), df, "nominal", 3, pids)
+    saved = pd.read_csv(out)
+    assert list(saved.columns) == ["prediction_id", "churn_true"]
+    # La requête en échec (None) est exclue : 4 lignes, IDs réels préservés.
+    assert saved["prediction_id"].tolist() == ["uuid-a", "uuid-b", "uuid-d", "uuid-e"]

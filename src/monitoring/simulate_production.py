@@ -13,6 +13,12 @@ Bombarde le serving (nginx `:8090` ou FastAPI direct) selon 3 modes :
 Vérité retardée : `--with-ground-truth PATH` écrit un CSV
 (prediction_id, churn_true) rejouant la vraie fonction génératrice — simule
 les labels observés 30 jours plus tard pour l'évaluation différée.
+Choix revue BP3 (Option A) : le simulateur réutilise les `prediction_id`
+réellement servis par l'API (`/predict` les renvoie et les loggue), de sorte
+que `evaluate_performance` peut faire une jointure exacte sur
+`prediction_id` au lieu d'un alignement positionnel fragile. En `--dry-run`
+(sans serveur), des IDs stables `sim-{mode}-{seed}-{i}` sont générés pour
+garder la reproductibilité.
 
 Le simulateur réutilise `src.data.generate_raw.generate` (même loi que le
 training) : le mode nominal hérite du déterminisme (seed) du dataset.
@@ -110,7 +116,7 @@ def ground_truth(df: pd.DataFrame, mode: Mode, seed: int) -> pd.Series:
     return pd.Series(rng.binomial(1, proba), index=df.index, name="churn_true")
 
 
-def _post_predict(url: str, payload: dict) -> tuple[bool, float]:
+def _post_predict(url: str, payload: dict) -> tuple[bool, float, str | None]:
     req = urllib.request.Request(
         url.rstrip("/") + "/predict",
         data=json.dumps(payload).encode(),
@@ -120,9 +126,13 @@ def _post_predict(url: str, payload: dict) -> tuple[bool, float]:
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             body = json.loads(resp.read().decode())
-        return True, float(body["churn_probability"])
+        # L'API renvoie le prediction_id servi (et loggué côté serving) :
+        # on le propage pour que la vérité retardée soit joignable
+        # exactement (Option A revue BP3), pas par position.
+        pid = body.get("prediction_id")
+        return True, float(body["churn_probability"]), str(pid) if pid else None
     except (urllib.error.HTTPError, urllib.error.URLError):
-        return False, 0.0
+        return False, 0.0, None
 
 
 def _row_payload(i: int, row: pd.Series) -> dict:
@@ -138,12 +148,21 @@ def _row_payload(i: int, row: pd.Series) -> dict:
     return base
 
 
-def run_traffic(url: str, mode: Mode, n: int, seed: int) -> tuple[TrafficResult, pd.DataFrame]:
-    """Envoie N requêtes et retourne (résultat agrégé, frame des features)."""
+def run_traffic(
+    url: str, mode: Mode, n: int, seed: int
+) -> tuple[TrafficResult, pd.DataFrame, list[str | None]]:
+    """Envoie N requêtes et retourne (résultat, features, prediction_ids).
+
+    Les `prediction_ids` sont les IDs réellement servis par l'API (None si
+    la requête a échoué) — à passer à `write_ground_truth` pour une jointure
+    exacte côté `evaluate_performance` (Option A revue BP3).
+    """
     df = build_frame(mode, n, seed)
     ok, errors, probas = 0, 0, []
+    prediction_ids: list[str | None] = []
     for i, (_, row) in enumerate(df.iterrows()):
-        success, proba = _post_predict(url, _row_payload(i, row))
+        success, proba, pid = _post_predict(url, _row_payload(i, row))
+        prediction_ids.append(pid)
         if success:
             ok += 1
             probas.append(proba)
@@ -155,17 +174,38 @@ def run_traffic(url: str, mode: Mode, n: int, seed: int) -> tuple[TrafficResult,
         n_errors=errors,
         mean_proba=float(np.mean(probas)) if probas else 0.0,
     )
-    return result, df
+    return result, df, prediction_ids
 
 
-def write_ground_truth(path: str, df: pd.DataFrame, mode: Mode, seed: int) -> str:
-    """Écrit le CSV de vérité retardée (prediction_id simulés stables)."""
+def write_ground_truth(
+    path: str,
+    df: pd.DataFrame,
+    mode: Mode,
+    seed: int,
+    prediction_ids: list[str | None] | None = None,
+) -> str:
+    """Écrit le CSV de vérité retardée (prediction_id, churn_true).
+
+    Choix revue BP3 (Option A) : quand les `prediction_ids` réellement servis
+    par l'API sont fournis (via `run_traffic`), on les réutilise tels quels
+    pour permettre la jointure exacte dans `evaluate_performance`. Sans IDs
+    (`--dry-run` ou appel direct), repli sur des IDs stables déterministes
+    `sim-{mode}-{seed}-{i}` (reproductibles, mais non joignables aux logs).
+    Les requêtes en échec (prediction_id None) sont exclues : sans inférence
+    logguée, leur label orphelin fausserait la jointure.
+    """
     labels = ground_truth(df, mode, seed)
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["row_id", "churn_true"])
+        writer.writerow(["prediction_id", "churn_true"])
         for i, label in enumerate(labels):
-            writer.writerow([f"sim-{mode}-{seed}-{i:05d}", int(label)])
+            if prediction_ids is not None:
+                pid = prediction_ids[i] if i < len(prediction_ids) else None
+                if pid is None:
+                    continue
+                writer.writerow([pid, int(label)])
+            else:
+                writer.writerow([f"sim-{mode}-{seed}-{i:05d}", int(label)])
     return path
 
 
@@ -184,15 +224,16 @@ def main() -> None:
     if args.dry_run:
         df = build_frame(args.mode, args.n, args.seed)
         print(f"[simulate] dry-run {args.mode} : {len(df)} lignes générées (aucun appel)")
+        prediction_ids: list[str | None] | None = None
     else:
-        result, df = run_traffic(args.url, args.mode, args.n, args.seed)
+        result, df, prediction_ids = run_traffic(args.url, args.mode, args.n, args.seed)
         print(
             f"[simulate] {args.mode} via {args.url} : "
             f"{result.n_ok}/{result.n_sent} OK, {result.n_errors} erreurs, "
             f"proba moyenne={result.mean_proba:.3f}"
         )
     if args.with_ground_truth:
-        out = write_ground_truth(args.with_ground_truth, df, args.mode, args.seed)
+        out = write_ground_truth(args.with_ground_truth, df, args.mode, args.seed, prediction_ids)
         print(f"[simulate] vérité retardée : {out}")
 
 

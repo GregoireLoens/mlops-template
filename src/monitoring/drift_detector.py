@@ -9,10 +9,12 @@ d'entraînement DVC (référence, `data/prepared/train.csv`) :
 - **Prediction drift** : même test sur `churn_probability` (courant) vs
   taux de la cible d'entraînement — une dérive de la sortie sans dérive
   d'entrée est le signal d'un concept drift naissant.
-- **Performance différée** : si un CSV de vérité terrain (`row_id` ou
-  `prediction_id`, `churn_true`) est fourni, accuracy/F1/ROC-AUC courantes
-  vs métriques du training (`metrics.json`) — dégradation > tolérance =>
-  concept drift confirmé.
+- **Performance différée** : si un CSV de vérité terrain (`prediction_id`,
+  `churn_true`) est fourni, jointure réelle sur `prediction_id` (left join
+  de la vérité sur les inférences) puis accuracy/F1/ROC-AUC courantes vs
+  métriques du training (`metrics.json`) — dégradation > tolérance =>
+  concept drift confirmé. Sans `prediction_id` commun (CSV legacy), repli
+  positionnel documenté dans `evaluate_performance`.
 
 Sorties (`reports/monitoring/`, paramétrable) :
 - `drift_report.html` : rapport Evidently autonome (interactif) ;
@@ -104,7 +106,16 @@ def load_current(
         rows = latest_inference_frames(base, limit=limit)
     if not rows:
         return pd.DataFrame()
-    flat = [{**r.get("features", {}), PREDICTION_COL: r.get("churn_probability")} for r in rows]
+    flat = [
+        {
+            **r.get("features", {}),
+            PREDICTION_COL: r.get("churn_probability"),
+            # Préserve la clé de jointure pour evaluate_performance (Option A :
+            # jointure réelle sur prediction_id, pas d'alignement positionnel).
+            **({"prediction_id": r["prediction_id"]} if "prediction_id" in r else {}),
+        }
+        for r in rows
+    ]
     return pd.DataFrame(flat)
 
 
@@ -212,7 +223,19 @@ def evaluate_performance(
     ground_truth_path: str | None,
     params: Params,
 ) -> dict[str, Any]:
-    """Métriques différées courantes vs training (concept drift confirmé ?)."""
+    """Métriques différées courantes vs training (concept drift confirmé ?).
+
+    Choix revue BP3 — Option A (recommandée) : jointure réelle sur
+    `prediction_id` (left join de la vérité terrain sur les inférences).
+    Le simulateur écrit les `prediction_id` réellement servis par l'API et
+    `load_current` préserve cette colonne depuis les logs JSONL, donc
+    l'appariement survit aux réordonnancements, aux requêtes perdues et aux
+    fenêtres partielles — contrairement à l'ancien alignement positionnel
+    `n = min(len(gt), len(current))`. Repli positionnel conservé uniquement
+    quand l'une des deux tables n'a pas de `prediction_id` (CSV legacy avec
+    `row_id`, ou frame synthétique des tests) ; le champ `join` expose le
+    mode utilisé (`prediction_id` vs `positional`) pour la traçabilité.
+    """
     if not ground_truth_path:
         return {"evaluated": False, "reason": "pas de vérité terrain fournie"}
     gt = pd.read_csv(ground_truth_path)
@@ -220,14 +243,32 @@ def evaluate_performance(
         return {"evaluated": False, "reason": "colonne churn_true absente"}
     if PREDICTION_COL not in current.columns:
         return {"evaluated": False, "reason": "pas de prédictions dans la fenêtre"}
-    n = min(len(gt), len(current))
-    y_true = gt["churn_true"].to_numpy()[:n]
-    proba = current[PREDICTION_COL].to_numpy(dtype=float)[:n]
+    # Normalise l'ID legacy `row_id` vers `prediction_id` quand c'est la
+    # seule clé disponible côté vérité terrain.
+    if "prediction_id" not in gt.columns and "row_id" in gt.columns:
+        gt = gt.rename(columns={"row_id": "prediction_id"})
+    join_mode = "positional"
+    if "prediction_id" in gt.columns and "prediction_id" in current.columns:
+        merged = current.merge(gt[["prediction_id", "churn_true"]], on="prediction_id", how="inner")
+        if len(merged) == 0:
+            return {
+                "evaluated": False,
+                "reason": "aucune correspondance prediction_id entre inférences et vérité terrain",
+            }
+        y_true = merged["churn_true"].to_numpy()
+        proba = merged[PREDICTION_COL].to_numpy(dtype=float)
+        n = len(merged)
+        join_mode = "prediction_id"
+    else:
+        n = min(len(gt), len(current))
+        y_true = gt["churn_true"].to_numpy()[:n]
+        proba = current[PREDICTION_COL].to_numpy(dtype=float)[:n]
     pred = (proba >= 0.5).astype(int)
     from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 
     metrics: dict[str, Any] = {
         "evaluated": True,
+        "join": join_mode,
         "n": n,
         "accuracy": float(accuracy_score(y_true, pred)),
         "f1": float(f1_score(y_true, pred, zero_division=0)),
@@ -379,7 +420,7 @@ def run(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--current", default=None, help="CSV/JSONL de la fenêtre courante")
-    parser.add_argument("--ground-truth", default=None, help="CSV (row_id, churn_true)")
+    parser.add_argument("--ground-truth", default=None, help="CSV (prediction_id, churn_true)")
     parser.add_argument("--limit", type=int, default=10_000)
     args = parser.parse_args()
     run(load_params(), current_path=args.current, ground_truth_path=args.ground_truth)
