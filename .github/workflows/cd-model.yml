@@ -55,7 +55,7 @@ jobs:
       SERVING_IMAGE: ghcr.io/${{ github.repository_owner }}/mlops-serving:${{ github.sha }}
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.0.1
         with:
           enable-cache: true
       - run: uv python install && uv sync --extra dev --extra serving
