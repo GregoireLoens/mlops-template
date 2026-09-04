@@ -1,4 +1,4 @@
-# ADR-011 — Monitoring production, drift & retraining loop (BP3)
+# ADR-011 : Monitoring & Drift
 
 Date : 2026-09-03. Statut : acceptée.
 

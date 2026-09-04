@@ -82,3 +82,7 @@ La CI (lint, unitaires, intégration) tourne sans aucun conteneur : MLflow
 sqlite local, dataset régénéré in-process, registre local. La CD (image
 serving) est le seul workflow qui nécessite docker. Conséquence : la CI
 reste rapide et portable, le coût docker n'est payé que quand on déploie.
+
+## ADR-011 : Monitoring & Drift
+
+Monitoring production via Evidently + tests KS/Chi-2 maison, inférences JSONL jointes par `prediction_id`, réentraînement si drift OU performance dégradée (avec volume + cooldown).
